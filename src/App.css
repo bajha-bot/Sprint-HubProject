@@ -1,0 +1,4 @@
+.wholeScreen{
+  display: flex;
+  flex-direction: row;
+}

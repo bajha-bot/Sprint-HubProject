@@ -1,0 +1,113 @@
+.ceipal-container {
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.upload-section {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+  border: 2px dashed #dee2e6;
+  transition: border-color 0.3s ease;
+}
+
+.upload-section:hover {
+  border-color: #007bff;
+}
+
+.file-input-wrapper {
+  position: relative;
+  display: inline-block;
+  width: 100%;
+}
+
+.file-input {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  font-size: 16px;
+}
+
+.data-table {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  overflow: hidden;
+}
+
+.table-header {
+  background: linear-gradient(135deg, #007bff, #0056b3);
+  color: white;
+  padding: 15px 20px;
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.stats-row {
+  background: #e3f2fd;
+  padding: 10px 20px;
+  border-bottom: 1px solid #dee2e6;
+  font-weight: 500;
+  color: #1976d2;
+}
+
+.table-responsive {
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+.custom-table {
+  margin: 0;
+}
+
+.custom-table th {
+  background: #343a40;
+  color: white;
+  font-weight: 600;
+  text-align: center;
+  padding: 12px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.custom-table td {
+  padding: 10px 12px;
+  vertical-align: middle;
+  border-bottom: 1px solid #dee2e6;
+  text-align: center;
+}
+
+.custom-table tbody tr:hover {
+  background-color: #f8f9fa;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: #6c757d;
+}
+
+.empty-state i {
+  font-size: 3rem;
+  margin-bottom: 15px;
+  color: #dee2e6;
+}
+
+.loading-spinner {
+  text-align: center;
+  padding: 40px;
+}
+
+.error-message {
+  background: #f8d7da;
+  color: #721c24;
+  padding: 15px;
+  border-radius: 4px;
+  margin: 10px 0;
+  border: 1px solid #f5c6cb;
+}

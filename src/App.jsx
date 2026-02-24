@@ -8,24 +8,33 @@ import Search from "./pages/search/Search";
 import Browse from "./pages/browse/Browse";
 import { useSelector } from "react-redux";
 import Manage from "./pages/manage/Manage";
+import EmployeeStatsCard from "./components/EmployeeStatsCard";
+import CeipalDetails from "./components/CeipalDetails";
+import { AuthProvider } from "./context/AuthContext";
+import RoleBasedClientBrowser from "./components/RoleBasedClientBrowser";
+import RoleBasedLogin from "./components/RoleBasedLogin";
 
 function App() {
-  const navbarState = useSelector(state=> state.navbarChange.value)
-
-
+  const navbarState = useSelector((state) => state.navbarChange.value);
 
   return (
-    <div className="wholeScreen">
-      <MainSideBar />
+    <AuthProvider>
+      <div className="wholeScreen">
+        <MainSideBar />
 
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/notifications" element={<Notifications />} />
-        <Route path="/search" element={<Search />} />
-        <Route path="/browse" element={<Browse />} />
-        <Route path="/manage" element={<Manage />} />
-      </Routes>
-    </div>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/notifications" element={<Notifications />} />
+          <Route path="/search" element={<Search />} />
+          <Route path="/browse" element={<Browse />} />
+          <Route path="/manage" element={<Manage />} />
+          <Route path="/EmployeeStatsCard" element={<EmployeeStatsCard />} />
+          <Route path="/ceipal-details" element={<CeipalDetails />} />
+          <Route path="/role-based-login" element={<RoleBasedLogin />} />
+          <Route path="/role-based-browser" element={<RoleBasedClientBrowser />} />
+        </Routes>
+      </div>
+    </AuthProvider>
   );
 }
 

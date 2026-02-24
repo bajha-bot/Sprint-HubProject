@@ -15,6 +15,10 @@ import fileImg from "/file.webp";
 import { openFileLink } from "../../features/openFileSlice";
 import { changeBreadcrumb } from "../../features/breadcrumbSlice";
 import SprintHubLogo from "/SprintHubLogo.png";
+import EmployeeStatsCard from "../../components/EmployeeStatsCard";
+import ProjectStatsCard from "../../components/ProjectStatsCard";
+import ClientProjectTree from "../../components/ClientProjectTree";
+import useGetAllEmployees from "../../hooks/useGetAllEmployees";
 
 function Home() {
   const navigate = useNavigate();
@@ -22,6 +26,25 @@ function Home() {
   const [openedFolder, setOpenedFolder] = useState([]);
   const [searchOutput, setSearchOutput] = useState([]);
   const objValue = useSelector((state) => state.create.value);
+  const { data: employeeData } = useGetAllEmployees();
+
+  // Debug logging
+  // useEffect(() => {
+  //   console.log('Employee data:', employeeData);
+  //   if (employeeData?.records) {
+  //     console.log('Records count:', employeeData.records.length);
+  //     console.log('Sample record:', employeeData.records[0]);
+  //     console.log('Sample record keys:', Object.keys(employeeData.records[0]));
+  //     // Check if any record has allocation data
+  //     const recordWithAllocation = employeeData.records.find(emp => emp.employeeAllocationDataDTO);
+  //     console.log('Record with allocation:', recordWithAllocation);
+  //     if (recordWithAllocation?.employeeAllocationDataDTO) {
+  //       console.log('Allocation data keys:', Object.keys(recordWithAllocation.employeeAllocationDataDTO));
+  //       console.log('Full allocation data:', recordWithAllocation.employeeAllocationDataDTO);
+  //     }
+  //     console.log('Opened clients:', openedClients);
+  //   }
+  // }, [employeeData, openedClients]);
 
   const searchRef = useRef(null);
 
@@ -170,6 +193,8 @@ function searchByName(searchText) {
           <h6>Create New File</h6>
         </div>
       </div>
+      {/* <EmployeeStatsCard /> */}
+      
       <div className="existingProjects">
         <h4
           style={{
@@ -182,7 +207,11 @@ function searchByName(searchText) {
         >
           All Projects And Files
         </h4>
-        {viewFolder()}
+        
+        {/* Client Names as Folders */}
+        <ClientProjectTree />
+        
+        {/* {viewFolder()} */}
       </div>
     </div>
   );

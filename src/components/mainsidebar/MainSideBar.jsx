@@ -12,6 +12,8 @@ useEffect(()=>{
 if(location.pathname==='/browse') dispatch(changeNavbarState(3))
 if(location.pathname==='/notifications') dispatch(changeNavbarState(1))
 if(location.pathname==='/search') dispatch(changeNavbarState(2))
+if(location.pathname==='/ceipal-details') dispatch(changeNavbarState(5))
+if(location.pathname==='/role-based-browser') dispatch(changeNavbarState(6))
 },[])
  const dispatch = useDispatch();
   const value = useSelector((state) => state.navbarChange.value);
@@ -58,6 +60,22 @@ if(location.pathname==='/search') dispatch(changeNavbarState(2))
           onClick={() => dispatch(changeNavbarState(4))}
         >
           <i className="bi bi-gear sideIcons"></i>Manage
+        </div>
+      </Link>
+      <Link to="/ceipal-details">
+        <div
+          className={`sideBarItem ${value === 5 ? "active" : ""}`}
+          onClick={() => dispatch(changeNavbarState(5))}
+        >
+          <i className="bi bi-file-earmark-excel sideIcons"></i>CEIPAL Details
+        </div>
+      </Link>
+      <Link to="/role-based-browser">
+        <div
+          className={`sideBarItem ${value === 6 ? "active" : ""}`}
+          onClick={() => dispatch(changeNavbarState(6))}
+        >
+          <i className="bi bi-shield-lock sideIcons"></i>My Teams
         </div>
       </Link>
     </div>

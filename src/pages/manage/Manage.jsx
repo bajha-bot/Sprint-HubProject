@@ -17,6 +17,8 @@ import AddFileImg from "/add-document.webp";
 import DeleteImg from "/deleteImg.webp";
 import RenameImg from "/rename.webp";
 import AddUser from "/adduser.webp";
+import ManageClientProjectTree from "../../components/ManageClientProjectTree";
+import ClientProjectTree from "../../components/ClientProjectTree";
 
 function Manage() {
   const value = useSelector((state) => state.create.value);
@@ -163,8 +165,8 @@ function Manage() {
         )}
     </div>
   ));
-}
-
+ 
+}  
 
   return (
     <div className="folderSection" style={{ width: "100%" }}>
@@ -203,6 +205,8 @@ function Manage() {
           />
         </div>
       </div>
+      <ManageClientProjectTree />
+    
       <div style={{ marginLeft: "2rem" }}>{displayLoop(value)}</div>
     </div>
   );

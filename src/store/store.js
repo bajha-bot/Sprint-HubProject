@@ -3,6 +3,7 @@ import createFolderFilesReducer from "../features/createFolderFilesSlice";
 import navbarReducer from "../features/navbarSlice";
 import openFileReducer from "../features/openFileSlice";
 import breadcrumbReducer from "../features/breadcrumbSlice";
+import clientProjectTreeReducer from "../features/clientProjectTreeSlice";
 
 export const store = configureStore({
   reducer: {
@@ -10,6 +11,7 @@ export const store = configureStore({
     navbarChange: navbarReducer,
     breacrumbTitle:breadcrumbReducer,
     changeFileLink: openFileReducer,
+    clientProjectTree: clientProjectTreeReducer,
   },
 });
 

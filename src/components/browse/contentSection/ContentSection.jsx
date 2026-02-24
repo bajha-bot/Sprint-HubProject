@@ -1,16 +1,28 @@
 import React, { useEffect, useState } from "react";
 import "./ContentSection.css";
 import { useSelector } from "react-redux";
+import ProjectStatsCard from "../../ProjectStatsCard";
 
 export default function ContentSection({selectedFileUrl}) {
   const breacrumbTitle = useSelector((state) => state.breacrumbTitle.value);
   const [isLoading, setIsLoading] = useState(false);
-  // console.log("this is from browse", selectedFileUrl);
-
+  const [isDashboard, setIsDashboard] = useState(false);
+  const [projectData, setProjectData] = useState(null);
 
   useEffect(() => {
     if (selectedFileUrl) {
-      setIsLoading(true);
+      if (selectedFileUrl.startsWith('/project-dashboard/')) {
+        const parts = selectedFileUrl.split('/');
+        const clientName = decodeURIComponent(parts[2]);
+        const projectName = decodeURIComponent(parts[3]);
+        setProjectData({ clientName, projectName });
+        setIsDashboard(true);
+        setIsLoading(false);
+      } else {
+        setIsDashboard(false);
+        setProjectData(null);
+        setIsLoading(true);
+      }
     }
   }, [selectedFileUrl]);
 
@@ -49,7 +61,12 @@ export default function ContentSection({selectedFileUrl}) {
           </div>
         )}
 
-        {selectedFileUrl ? (
+        {isDashboard && projectData ? (
+          <ProjectStatsCard 
+            projectName={projectData.projectName}
+            clientName={projectData.clientName}
+          />
+        ) : selectedFileUrl ? (
           <iframe
             className="contentSection"
             src={selectedFileUrl}

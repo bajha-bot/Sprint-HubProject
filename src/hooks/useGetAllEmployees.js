@@ -2,7 +2,12 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { authFetch } from "../api/authFetch";
 import { setTempToken } from "../constants/apiToken";
 import { STORAGE_KEYS } from "../constants/storageKeys";
-const API_URL = "/myTeam/open-apis/getAllEmployees";
+
+// Use full API URL for production, relative for development
+const API_BASE_URL = import.meta.env.PROD 
+  ? 'https://prodbe-myteam.mynisum.com' 
+  : '';
+const API_URL = `${API_BASE_URL}/myTeam/open-apis/getAllEmployees`;
 
 const useGetAllEmployees = () => {
   const [data, setData] = useState(null);

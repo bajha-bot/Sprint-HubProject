@@ -124,11 +124,11 @@ const RoleBasedClientBrowser = () => {
           Logout
         </button>
       </div>
-      <div style={{ marginBottom: '20px', padding: '15px', backgroundColor: '#f5f5f5', borderRadius: '8px' }}>
+      {/* <div style={{ marginBottom: '20px', padding: '15px', backgroundColor: '#f5f5f5', borderRadius: '8px' }}>
         <p><strong>Role:</strong> {user.role}</p>
         <p><strong>Name:</strong> {user.name}</p>
         <p><strong>Email:</strong> {user.email}</p>
-      </div>
+      </div> */}
       
       <h3 style={{ marginBottom: '15px' }}>Accessible Clients & Projects</h3>
       

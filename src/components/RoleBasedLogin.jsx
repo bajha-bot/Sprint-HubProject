@@ -26,7 +26,10 @@ const RoleBasedLogin = () => {
     
     try {
       setTempToken();
-      const response = await authFetch('/myTeam/open-apis/getAllEmployees');
+      const apiUrl = import.meta.env.PROD 
+        ? 'https://prodbe-myteam.mynisum.com/myTeam/open-apis/getAllEmployees'
+        : '/myTeam/open-apis/getAllEmployees';
+      const response = await authFetch(apiUrl);
       
       if (!response.ok) {
         throw new Error('Failed to fetch employee data');

@@ -2,8 +2,9 @@ import { setAuthTokens, clearAuth } from "../auth/authService";
 import { STORAGE_KEYS } from "../constants/storageKeys";
 import { redirectToLogin } from "../utils/redirectToLogin";
 
-const REFRESH_API =
-  "https://qa-myteam.mynisum.com:8445/myTeam/auth/refresh-token";
+const REFRESH_API = import.meta.env.PROD
+  ? "https://prodbe-myteam.mynisum.com/myTeam/auth/refresh-token"
+  : "/myTeam/auth/refresh-token";
 
 export const refreshAccessToken = async () => {
   const refreshToken = localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);

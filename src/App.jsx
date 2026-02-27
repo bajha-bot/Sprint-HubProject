@@ -31,7 +31,7 @@ function App() {
           <Route path="/EmployeeStatsCard" element={<EmployeeStatsCard />} />
           <Route path="/ceipal-details" element={<CeipalDetails />} />
           <Route path="/role-based-login" element={<RoleBasedLogin />} />
-          <Route path="/role-based-browser" element={<RoleBasedClientBrowser />} />
+          <Route path="/sprint-hub-app" element={<RoleBasedClientBrowser />} />
         </Routes>
       </div>
     </AuthProvider>

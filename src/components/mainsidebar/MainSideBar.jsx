@@ -13,7 +13,7 @@ if(location.pathname==='/browse') dispatch(changeNavbarState(3))
 if(location.pathname==='/notifications') dispatch(changeNavbarState(1))
 if(location.pathname==='/search') dispatch(changeNavbarState(2))
 if(location.pathname==='/ceipal-details') dispatch(changeNavbarState(5))
-if(location.pathname==='/role-based-browser') dispatch(changeNavbarState(6))
+if(location.pathname==='/sprint-hub-app') dispatch(changeNavbarState(6))
 },[])
  const dispatch = useDispatch();
   const value = useSelector((state) => state.navbarChange.value);
@@ -70,7 +70,7 @@ if(location.pathname==='/role-based-browser') dispatch(changeNavbarState(6))
           <i className="bi bi-file-earmark-excel sideIcons"></i>CEIPAL Details
         </div>
       </Link>
-      <Link to="/role-based-browser">
+      <Link to="/sprint-hub-app">
         <div
           className={`sideBarItem ${value === 6 ? "active" : ""}`}
           onClick={() => dispatch(changeNavbarState(6))}

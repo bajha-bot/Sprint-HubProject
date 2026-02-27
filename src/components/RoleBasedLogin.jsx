@@ -45,7 +45,7 @@ const RoleBasedLogin = () => {
       }
       
       localStorage.setItem('userEmail', email);
-      window.location.href = '/role-based-browser';
+      window.location.href = '/sprint-hub-app';
     } catch (err) {
       setError('Failed to verify email. Please try again.');
       setLoading(false);

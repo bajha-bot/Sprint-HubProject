@@ -3,7 +3,6 @@ import { useAuth } from '../context/AuthContext';
 import { canAccessClient, canAccessProject, filterEmployeesByRole } from '../utils/roleBasedAccess';
 import { CLIENT_SHEETS } from '../constants/roles';
 import { authFetch } from '../api/authFetch';
-import { setTempToken } from '../constants/apiToken';
 import { useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { openFileLink } from '../features/openFileSlice';
@@ -28,8 +27,10 @@ const RoleBasedClientBrowser = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        setTempToken();
-        const response = await authFetch('/myTeam/open-apis/getAllEmployees');
+        const apiUrl = import.meta.env.PROD
+          ? 'https://prodbe-myteam.mynisum.com/myTeam/open-apis/getAllEmployees'
+          : '/myTeam/open-apis/getAllEmployees';
+        const response = await authFetch(apiUrl);
         
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
@@ -162,13 +163,28 @@ const RoleBasedClientBrowser = () => {
                           </div>
                           {openedProjects.includes(project.projectName) && (
                             <div style={{ marginLeft: '1rem' }}>
-                              <div 
-                                style={{ display: 'flex', cursor: 'pointer', marginBottom: '0.2rem', alignItems: 'center' }}
-                                onClick={() => handleProjectDashboard(client.accountName, project.projectName)}
-                              >
-                                <img src={fileImg} height={16} alt="file" />
-                                <span style={{ marginLeft: '8px', fontSize: '0.8rem' }}>Project Dashboard</span>
-                              </div>
+                              {['Project Team', 'Project Plan', 'Project Dashboard'].map(fileName => (
+                                <div 
+                                  key={fileName}
+                                  style={{ 
+                                    display: 'flex', 
+                                    cursor: 'pointer', 
+                                    marginBottom: '0.2rem', 
+                                    alignItems: 'center',
+                                    padding: '4px 8px',
+                                    borderRadius: '4px',
+                                    border: '1px solid #e0e0e0'
+                                  }}
+                                  onClick={() => {
+                                    if (fileName === 'Project Dashboard') {
+                                      handleProjectDashboard(client.accountName, project.projectName);
+                                    }
+                                  }}
+                                >
+                                  <img src={fileImg} height={16} alt="file" />
+                                  <span style={{ marginLeft: '8px', fontSize: '0.8rem' }}>{fileName}</span>
+                                </div>
+                              ))}
                             </div>
                           )}
                         </div>

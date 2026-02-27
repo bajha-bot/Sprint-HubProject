@@ -13,9 +13,19 @@ import CeipalDetails from "./components/CeipalDetails";
 import { AuthProvider } from "./context/AuthContext";
 import RoleBasedClientBrowser from "./components/RoleBasedClientBrowser";
 import RoleBasedLogin from "./components/RoleBasedLogin";
+import { initializeToken } from "./constants/apiToken";
 
 function App() {
   const navbarState = useSelector((state) => state.navbarChange.value);
+  const [tokenReady, setTokenReady] = useState(false);
+
+  useEffect(() => {
+    initializeToken().then(() => setTokenReady(true));
+  }, []);
+
+  if (!tokenReady) {
+    return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>Loading...</div>;
+  }
 
   return (
     <AuthProvider>

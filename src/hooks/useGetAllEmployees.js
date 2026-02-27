@@ -1,6 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { authFetch } from "../api/authFetch";
-import { setTempToken } from "../constants/apiToken";
 import { STORAGE_KEYS } from "../constants/storageKeys";
 
 // Use full API URL for production, relative for development
@@ -20,9 +19,6 @@ const useGetAllEmployees = () => {
     setError(null);
 
     try {
-      // Set token before making request
-      setTempToken();
-      
       const response = await authFetch(API_URL);
       
       if (!response.ok) {

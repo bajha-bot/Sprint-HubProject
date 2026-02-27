@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authFetch } from '../api/authFetch';
-import { setTempToken } from '../constants/apiToken';
 import './EmployeeStatsCard.css';
 
 const RoleBasedLogin = () => {
@@ -25,7 +24,6 @@ const RoleBasedLogin = () => {
     setError('');
     
     try {
-      setTempToken();
       const apiUrl = import.meta.env.PROD 
         ? 'https://prodbe-myteam.mynisum.com/myTeam/open-apis/getAllEmployees'
         : '/myTeam/open-apis/getAllEmployees';
@@ -45,7 +43,7 @@ const RoleBasedLogin = () => {
       }
       
       localStorage.setItem('userEmail', email);
-      window.location.href = '/sprint-hub-app';
+      navigate('/sprint-hub-app');
     } catch (err) {
       setError('Failed to verify email. Please try again.');
       setLoading(false);

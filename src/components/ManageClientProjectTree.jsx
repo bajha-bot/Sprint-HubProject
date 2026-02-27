@@ -226,6 +226,7 @@ const ManageClientProjectTree = () => {
                           onClick={(e) => {
                             e.stopPropagation();
                             dispatch(createFile(0));
+                            
                           }}
                         />
                       </div>

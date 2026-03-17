@@ -1,7 +1,7 @@
 import React from "react";
 import "./Browse.css";
-import ContentSection from "../../components/browser/contentSection/ContentSection1";
-import FolderSection from "../../components/browser/folderSection/FolderSection1";
+import ContentSection from "../../components/browse/contentSection/ContentSection";
+import FolderSection from "../../components/browse/folderSection/FolderSection";
 import { useSelector } from "react-redux";
 
 function Browse() {

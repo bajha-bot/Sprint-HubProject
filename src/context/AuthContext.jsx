@@ -6,6 +6,7 @@ const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+  const [allEmployees, setAllEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -25,6 +26,8 @@ export const AuthProvider = ({ children }) => {
         }
         
         const data = await response.json();
+        setAllEmployees(data.records || []);
+        
         const currentUser = data.records?.find(emp => emp.emailId === userEmail);
         
         if (currentUser) {
@@ -51,7 +54,7 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading }}>
+    <AuthContext.Provider value={{ user, allEmployees, loading }}>
       {children}
     </AuthContext.Provider>
   );

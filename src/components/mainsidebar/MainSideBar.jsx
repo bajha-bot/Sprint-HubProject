@@ -10,6 +10,7 @@ function MainSideBar() {
 
 useEffect(()=>{
 if(location.pathname==='/browse') dispatch(changeNavbarState(3))
+if(location.pathname==='/browser') dispatch(changeNavbarState(7))
 if(location.pathname==='/notifications') dispatch(changeNavbarState(1))
 if(location.pathname==='/search') dispatch(changeNavbarState(2))
 if(location.pathname==='/ceipal-details') dispatch(changeNavbarState(5))
@@ -52,6 +53,14 @@ if(location.pathname==='/sprint-hub-app') dispatch(changeNavbarState(6))
           onClick={() => dispatch(changeNavbarState(3))}
         >
           <i className="bi bi-folder sideIcons"></i>Browse
+        </div>
+      </Link>
+      <Link to="/browser">
+        <div
+          className={`sideBarItem ${value === 7 ? "active" : ""}`}
+          onClick={() => dispatch(changeNavbarState(7))}
+        >
+          <i className="bi bi-grid-3x3-gap sideIcons"></i>Browser
         </div>
       </Link>
       <Link to="/manage">

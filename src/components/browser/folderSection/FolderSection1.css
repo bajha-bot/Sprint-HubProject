@@ -1,0 +1,121 @@
+.folderSection {
+  background: #ecfaff;
+  width: 25rem;
+  height: 100vh;
+  padding-top: 1rem;
+  color: rgb(85, 85, 85);
+  padding-left: 1rem;
+  padding-right: 1rem;
+  font-weight: 100 !important;
+  border-right: 1px solid #2a89ac;
+  border-top: 1px solid #2a89ac;
+ overflow-y: scroll;
+}
+
+.folderTabs {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  margin: 0px;
+  padding-right: 0.5rem;
+   margin-bottom: 1rem;
+    margin-top: 1rem;
+}
+
+.folderIcon {
+  margin-bottom:4px;
+}
+
+.subFolderTabs {
+  padding-left: 0.5rem;padding-right: 0.5rem;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  margin: 0px;
+}
+
+.subFolderTabs p {
+  margin: 0;
+  padding-left: 3px;
+  font-size: 12px;
+  font-weight:600;
+}
+
+.isFolder {
+  color:rgb(85, 85, 85);
+  margin-top: 2px;
+  padding: 2px 10px 2px 10px;
+  margin-left: -0.5rem;
+  width:100%;
+  font-weight:bold;
+  /* border-radius: 3px;
+  background-color: rgb(255, 255, 255);
+  box-shadow: -1px 1px 1px #dcdcdc;
+  border: 1px solid rgb(201, 201, 20); */
+}
+
+.isFile {
+  margin-top: 2px;
+  padding: 2px 10px 2px 10px;
+  margin-left: -0.5rem;
+  width:80%;
+  font-weight:400;
+  /* box-shadow: -1px 1px 1px #dcdcdc; */
+  /* border-radius: 3px;
+  border:1px solid rgba(88, 171, 255, 0.782);
+  background-color: white; */
+}
+
+.options{
+  display: none;
+
+}
+
+.subFolderTabs:hover .options{
+  display: block;
+ cursor: pointer;
+  color: rgb(168, 168, 168);
+
+}
+
+
+
+
+
+
+
+.optionDiv{
+  position: absolute;
+  margin-left: 1.4rem;
+  margin-top: -1.2rem;
+  background: #0d81bbd6;
+  padding: 8px;
+  border-radius: 4px;
+  color:rgb(255, 255, 255);
+ 
+}
+
+.optionDiv p{
+  margin:5px;
+}
+
+.optionsAlignment{
+  display: flex;
+  align-items: center;
+  width: 7rem;
+}
+.optionsAlignment:hover{
+  display: flex;
+  align-items: center;
+  padding: 4px;
+padding-left: 8px;
+}
+
+.selectedFileStyle{
+  color:rgb(67, 67, 255);
+  font-style:italic;
+  font-weight: bold;
+  text-decoration: underline;
+  
+}

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { canAccessClient, canAccessProject, filterEmployeesByRole } from '../utils/roleBasedAccess';
 import { CLIENT_SHEETS } from '../constants/roles';
-import { authFetch } from '../api/authFetch';
+
 import { useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { openFileLink } from '../features/openFileSlice';
@@ -12,8 +12,7 @@ import folderImg from '/folder.webp';
 import fileImg from '/file.webp';
 
 const RoleBasedClientBrowser = () => {
-  const { user, loading } = useAuth();
-  const [employees, setEmployees] = useState([]);
+  const { user, allEmployees, loading } = useAuth();
   const [openedClients, setOpenedClients] = useState([]);
   const [openedProjects, setOpenedProjects] = useState([]);
   const dispatch = useDispatch();
@@ -24,31 +23,7 @@ const RoleBasedClientBrowser = () => {
     navigate('/role-based-login');
   };
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const apiUrl = import.meta.env.PROD
-          ? 'https://prodbe-myteam.mynisum.com/myTeam/open-apis/getAllEmployees'
-          : '/myTeam/open-apis/getAllEmployees';
-        const response = await authFetch(apiUrl);
-        
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        
-        const filteredEmployees = filterEmployeesByRole(user, data.records || []);
-        setEmployees(filteredEmployees);
-      } catch (error) {
-        console.error('Failed to fetch employees:', error);
-      }
-    };
-
-    if (user) {
-      fetchData();
-    }
-  }, [user]);
+  const employees = filterEmployeesByRole(user, allEmployees);
 
   const handleClientToggle = (clientName) => {
     const sheetUrl = CLIENT_SHEETS[clientName];
@@ -86,6 +61,7 @@ const RoleBasedClientBrowser = () => {
   const clientsMap = new Map();
   employees.forEach(emp => {
     const account = emp.employeeAllocationDataDTO?.parentAccount;
+    
     if (account?.accountName && canAccessClient(user, account.accountName)) {
       if (!clientsMap.has(account.accountName)) {
         clientsMap.set(account.accountName, {
@@ -100,10 +76,6 @@ const RoleBasedClientBrowser = () => {
       }
     }
   });
-
-  console.log('User:', user);
-  console.log('Filtered Employees:', employees.length);
-  console.log('Clients Map:', Array.from(clientsMap.entries()));
 
   const clients = Array.from(clientsMap.values()).sort((a, b) => a.accountName.localeCompare(b.accountName));
 

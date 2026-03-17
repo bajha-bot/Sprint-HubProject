@@ -15,6 +15,18 @@ const useGetAllEmployees = () => {
   const hasFetched = useRef(false);
 
   const fetchEmployees = useCallback(async () => {
+    // Check cache first
+    const cachedData = localStorage.getItem(STORAGE_KEYS.EMPLOYEES);
+    const cacheTime = localStorage.getItem(STORAGE_KEYS.EMPLOYEES + '_time');
+    const now = Date.now();
+    
+    // Use cache if less than 5 minutes old
+    if (cachedData && cacheTime && (now - parseInt(cacheTime)) < 300000) {
+      console.log('Using cached employee data');
+      setData(JSON.parse(cachedData));
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -28,14 +40,17 @@ const useGetAllEmployees = () => {
       const result = await response.json();
       console.log('API Response:', result);
 
-      localStorage.setItem(
-        STORAGE_KEYS.EMPLOYEES,
-        JSON.stringify(result)
-      );
+      localStorage.setItem(STORAGE_KEYS.EMPLOYEES, JSON.stringify(result));
+      localStorage.setItem(STORAGE_KEYS.EMPLOYEES + '_time', now.toString());
       setData(result);
     } catch (err) {
       console.error('API Error:', err);
       setError(err.message);
+      // Try to use cached data even if expired
+      if (cachedData) {
+        console.log('Using expired cache due to API error');
+        setData(JSON.parse(cachedData));
+      }
     } finally {
       setLoading(false);
     }

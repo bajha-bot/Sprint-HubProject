@@ -8,7 +8,7 @@ import useGetAllEmployees from '../hooks/useGetAllEmployees';
 import folderImg from '/folder.webp';
 import fileImg from '/file.webp';
 
-const ClientProjectTree = ({ onProjectTeamClick, onProjectPlanClick, showActions = true }) => {
+const ClientProjectTree = ({ onProjectTeamClick, onProjectPlanClick, onProjectDashboardClick, showActions = true }) => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { data: employeeData } = useGetAllEmployees();
@@ -23,7 +23,9 @@ const ClientProjectTree = ({ onProjectTeamClick, onProjectPlanClick, showActions
   };
 
   const handleProjectDashboard = (clientName, projectName) => {
-    navigate("/browse");
+    if (showActions) {
+      navigate("/browse");
+    }
     dispatch(openFileLink(`/project-dashboard/${clientName}/${projectName}`));
     dispatch(changeBreadcrumb(`${projectName} - Dashboard`));
   };
@@ -75,22 +77,31 @@ const ClientProjectTree = ({ onProjectTeamClick, onProjectPlanClick, showActions
                             onClick={() => onProjectTeamClick?.(clientName, projectName)}
                           >
                             <img src={fileImg} height={16} />
-                            <span style={{ marginLeft: "8px", fontSize: "0.8rem" }}>Project Team</span>
+                            <span style={{ marginLeft: "8px", fontSize: "0.8rem" }}>Project Team1</span>
                           </div>
                           <div 
                             style={{ display: "flex", cursor: "pointer", marginBottom: "0.2rem" }}
                             onClick={() => onProjectPlanClick?.(clientName, projectName)}
                           >
                             <img src={fileImg} height={16} />
-                            <span style={{ marginLeft: "8px", fontSize: "0.8rem" }}>Project Plan</span>
+                            <span style={{ marginLeft: "8px", fontSize: "0.8rem" }}>Project Plan1</span>
                           </div>
                           {showActions && (
                             <div 
                               style={{ display: "flex", cursor: "pointer", marginBottom: "0.2rem" }}
-                              onClick={() => handleProjectDashboard(clientName, projectName)}
+                              onClick={() => onProjectDashboardClick?.(clientName, projectName) || handleProjectDashboard(clientName, projectName)}
                             >
                               <img src={fileImg} height={16} />
-                              <span style={{ marginLeft: "8px", fontSize: "0.8rem" }}>Project Dashboard</span>
+                              <span style={{ marginLeft: "8px", fontSize: "0.8rem" }}>Project Dashboard1</span>
+                            </div>
+                          )}
+                          {!showActions && (
+                            <div 
+                              style={{ display: "flex", cursor: "pointer", marginBottom: "0.2rem" }}
+                              // onClick={() => handleProjectDashboard(clientName, projectName)}
+                            >
+                              <img src={fileImg} height={16} />
+                              <span style={{ marginLeft: "8px", fontSize: "0.8rem" }}>Project Dashboard1</span>
                             </div>
                           )}
                         </div>

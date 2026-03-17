@@ -6,6 +6,7 @@ import Home from "./pages/home/Home";
 import Notifications from "./pages/notifications/Notifications";
 import Search from "./pages/search/Search";
 import Browse from "./pages/browse/Browse";
+import Browser from "./pages/browser/Browser";
 import { useSelector } from "react-redux";
 import Manage from "./pages/manage/Manage";
 import EmployeeStatsCard from "./components/EmployeeStatsCard";
@@ -17,15 +18,10 @@ import { initializeToken } from "./constants/apiToken";
 
 function App() {
   const navbarState = useSelector((state) => state.navbarChange.value);
-  const [tokenReady, setTokenReady] = useState(false);
 
   useEffect(() => {
-    initializeToken().then(() => setTokenReady(true));
+    initializeToken();
   }, []);
-
-  if (!tokenReady) {
-    return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>Loading...</div>;
-  }
 
   return (
     <AuthProvider>
@@ -37,6 +33,7 @@ function App() {
           <Route path="/notifications" element={<Notifications />} />
           <Route path="/search" element={<Search />} />
           <Route path="/browse" element={<Browse />} />
+          <Route path="/browser" element={<Browser />} />
           <Route path="/manage" element={<Manage />} />
           <Route path="/EmployeeStatsCard" element={<EmployeeStatsCard />} />
           <Route path="/ceipal-details" element={<CeipalDetails />} />

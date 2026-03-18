@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { toggleClient, toggleProject } from '../features/clientProjectTreeSlice';
 import { openFileLink } from '../features/openFileSlice';
 import { changeBreadcrumb } from '../features/breadcrumbSlice';
+import { getProjectPlanSheetUrl, storeProjectPlanSheet } from '../utils/projectPlanSheetService';
 import useGetAllEmployees from '../hooks/useGetAllEmployees';
 import folderImg from '/folder.webp';
 import fileImg from '/file.webp';
@@ -20,6 +21,23 @@ const ClientProjectTree = ({ onProjectTeamClick, onProjectPlanClick, onProjectDa
 
   const handleProjectToggle = (projectName) => {
     dispatch(toggleProject(projectName));
+  };
+
+  const handleFileClick = (clientName, projectName, fileName, manageKey) => {
+    const storageKey = `sprintHub_${projectName}_${manageKey}`;
+    const storedUrl = localStorage.getItem(storageKey) || getProjectPlanSheetUrl(projectName);
+    if (storedUrl) {
+      dispatch(openFileLink(storedUrl));
+      dispatch(changeBreadcrumb(`${projectName} - ${fileName}`));
+    } else {
+      const newUrl = prompt(`Enter the ${fileName} URL for ${projectName}:`);
+      if (newUrl) {
+        localStorage.setItem(storageKey, newUrl);
+        if (manageKey === 'Project Plan13') storeProjectPlanSheet(projectName, newUrl, null);
+        dispatch(openFileLink(newUrl));
+        dispatch(changeBreadcrumb(`${projectName} - ${fileName}`));
+      }
+    }
   };
 
   const handleProjectDashboard = (clientName, projectName) => {
@@ -86,24 +104,13 @@ const ClientProjectTree = ({ onProjectTeamClick, onProjectPlanClick, onProjectDa
                             <img src={fileImg} height={16} />
                             <span style={{ marginLeft: "8px", fontSize: "0.8rem" }}>Project Plan1</span>
                           </div>
-                          {showActions && (
-                            <div 
-                              style={{ display: "flex", cursor: "pointer", marginBottom: "0.2rem" }}
-                              onClick={() => onProjectDashboardClick?.(clientName, projectName) || handleProjectDashboard(clientName, projectName)}
-                            >
-                              <img src={fileImg} height={16} />
-                              <span style={{ marginLeft: "8px", fontSize: "0.8rem" }}>Project Dashboard1</span>
-                            </div>
-                          )}
-                          {!showActions && (
-                            <div 
-                              style={{ display: "flex", cursor: "pointer", marginBottom: "0.2rem" }}
-                              // onClick={() => handleProjectDashboard(clientName, projectName)}
-                            >
-                              <img src={fileImg} height={16} />
-                              <span style={{ marginLeft: "8px", fontSize: "0.8rem" }}>Project Dashboard1</span>
-                            </div>
-                          )}
+                          <div 
+                            style={{ display: "flex", cursor: "pointer", marginBottom: "0.2rem" }}
+                            onClick={() => onProjectDashboardClick?.(clientName, projectName)}
+                          >
+                            <img src={fileImg} height={16} />
+                            <span style={{ marginLeft: "8px", fontSize: "0.8rem" }}>Project Dashboard1</span>
+                          </div>
                         </div>
                       )}
                     </div>

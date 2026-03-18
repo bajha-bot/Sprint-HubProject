@@ -1,22 +1,19 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { canAccessClient, canAccessProject, filterEmployeesByRole } from '../utils/roleBasedAccess';
 import { CLIENT_SHEETS } from '../constants/roles';
-
-import { useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import { openFileLink } from '../features/openFileSlice';
-import { changeBreadcrumb } from '../features/breadcrumbSlice';
 import './EmployeeStatsCard.css';
 import folderImg from '/folder.webp';
 import fileImg from '/file.webp';
+import ProjectStatsCard from './ProjectStatsCard';
 
 const RoleBasedClientBrowser = () => {
   const { user, allEmployees, loading } = useAuth();
   const [openedClients, setOpenedClients] = useState([]);
   const [openedProjects, setOpenedProjects] = useState([]);
-  const dispatch = useDispatch();
   const navigate = useNavigate();
+  const [selectedDashboard, setSelectedDashboard] = useState(null);
 
   const handleLogout = () => {
     localStorage.removeItem('userEmail');
@@ -47,9 +44,7 @@ const RoleBasedClientBrowser = () => {
   };
 
   const handleProjectDashboard = (clientName, projectName) => {
-    navigate("/browse");
-    dispatch(openFileLink(`/project-dashboard/${clientName}/${projectName}`));
-    dispatch(changeBreadcrumb(`${projectName} - Dashboard`));
+    setSelectedDashboard({ clientName, projectName });
   };
 
   if (loading) return <div className="stats-card">Loading...</div>;
@@ -80,9 +75,10 @@ const RoleBasedClientBrowser = () => {
   const clients = Array.from(clientsMap.values()).sort((a, b) => a.accountName.localeCompare(b.accountName));
 
   return (
-    <div className="stats-card" style={{ padding: '20px', minHeight: '80vh' }}>
+    <div style={{ display: 'flex', width: '100%', minHeight: '80vh' }}>
+    <div className="stats-card" style={{ padding: '20px', minWidth: '300px', width: '300px', overflowY: 'auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h2 className="stats-title">My Teams Dashboard</h2>
+        <h2 className="stats-title">Teams Dashboard</h2>
         <button
           onClick={handleLogout}
           style={{
@@ -135,7 +131,7 @@ const RoleBasedClientBrowser = () => {
                           </div>
                           {openedProjects.includes(project.projectName) && (
                             <div style={{ marginLeft: '1rem' }}>
-                              {['Project Team', 'Project Plan', 'Project Dashboard'].map(fileName => (
+                              {[ 'Project Team Data'].map(fileName => (
                                 <div 
                                   key={fileName}
                                   style={{ 
@@ -148,7 +144,7 @@ const RoleBasedClientBrowser = () => {
                                     border: '1px solid #e0e0e0'
                                   }}
                                   onClick={() => {
-                                    if (fileName === 'Project Dashboard') {
+                                    if (fileName === 'Project Team Data') {
                                       handleProjectDashboard(client.accountName, project.projectName);
                                     }
                                   }}
@@ -171,6 +167,12 @@ const RoleBasedClientBrowser = () => {
           })
         )}
       </div>
+    </div>
+    {selectedDashboard && (
+      <div style={{ flex: 1, overflowY: 'auto' }}>
+        <ProjectStatsCard projectName={selectedDashboard.projectName} clientName={selectedDashboard.clientName} />
+      </div>
+    )}
     </div>
   );
 };

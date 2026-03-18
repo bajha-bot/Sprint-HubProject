@@ -1,12 +1,29 @@
 import React, { useState, useEffect } from 'react';
+import { useDispatch } from 'react-redux';
 import { initializeGoogleAPI, initializeGIS, authenticate } from '../utils/googleSheetsService';
-import { createProjectPlanSheet, getProjectPlanSheetUrl, getConsolidatedSheetUrl } from '../utils/projectPlanSheetService';
+import { createProjectPlanSheet, getProjectPlanSheetUrl, getConsolidatedSheetUrl, syncConsolidatedSheet } from '../utils/projectPlanSheetService';
+import { updateFileLinkByName } from '../features/createFolderFilesSlice';
 
 const ProjectPlanSheetNew = ({ projectName }) => {
   const [sheetUrl, setSheetUrl] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isNew, setIsNew] = useState(false);
+
+  const dispatch = useDispatch();
+  const [syncing, setSyncing] = useState(false);
+
+  const handleSync = async () => {
+    try {
+      setSyncing(true);
+      await syncConsolidatedSheet(window.gapi);
+      alert('Consolidated sheet updated successfully! Check browser console (F12) for details.');
+    } catch (err) {
+      alert('Sync failed: ' + err.message + '\nCheck browser console (F12) for details.');
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   useEffect(() => {
     const initializeSheet = async () => {
@@ -34,10 +51,9 @@ const ProjectPlanSheetNew = ({ projectName }) => {
 
         console.log('Creating new sheet for:', projectName);
         const result = await createProjectPlanSheet(projectName, window.gapi);
-        console.log('Sheet created:', result);
         setSheetUrl(result.sheetUrl);
         setIsNew(result.isNew);
-        
+        dispatch(updateFileLinkByName({ projectName, url: result.sheetUrl }));
         if (result.isNew && result.sheetUrl) {
           window.open(result.sheetUrl, '_blank');
         }
@@ -90,13 +106,11 @@ const ProjectPlanSheetNew = ({ projectName }) => {
         <h3 style={{ margin: 0 }}>{projectName} - Project Plan</h3>
         <div style={{ display: 'flex', gap: '10px' }}>
           <button
-            onClick={() => {
-              localStorage.removeItem('sprintHub_projectPlan_sheets');
-              window.location.reload();
-            }}
-            style={{ padding: '8px 16px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', fontSize: '14px', cursor: 'pointer' }}
+            onClick={handleSync}
+            disabled={syncing}
+            style={{ padding: '8px 16px', backgroundColor: '#17a2b8', color: 'white', border: 'none', borderRadius: '4px', fontSize: '14px', cursor: syncing ? 'not-allowed' : 'pointer' }}
           >
-            Reset Sheet
+            {syncing ? 'Syncing...' : 'Sync to Consolidated'}
           </button>
           {consolidatedUrl && (
             <a 

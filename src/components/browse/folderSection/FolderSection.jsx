@@ -7,7 +7,6 @@ import {
   deleteFile,
   renameFile,
   updateFileLink,
-
 } from "../../../features/createFolderFilesSlice";
 import { openFileLink } from "../../../features/openFileSlice";
 import { changeBreadcrumb } from "../../../features/breadcrumbSlice";
@@ -20,6 +19,7 @@ import DeleteImg from "/deleteImg.webp";
 import LinkImg from "/link.webp";
 import RenameImg from "/rename.webp";
 import { changeNavbarState } from "../../../features/navbarSlice";
+import { getProjectPlanSheetUrl } from "../../../utils/projectPlanSheetService";
 
 function FolderSection() {
   const [optionSelected, setOptionSelected] = useState(0);
@@ -120,8 +120,7 @@ function FolderSection() {
     );
   }
 
-function displayLoop(x) {
-  // First, separate folders and files
+function displayLoop(x, parentFolderName = null) {
   const folders = x
     ?.filter((item) => item.type === "folder")
     .slice()
@@ -132,10 +131,14 @@ function displayLoop(x) {
     .slice()
     .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
 
-  // Combine folders first, then files
   const sorted = [...folders, ...files];
 
-  return sorted.map((val) => (
+  return sorted.map((val) => {
+    const resolvedUrl = val.type === 'file' && val.name === 'Project Plan' && parentFolderName
+      ? (getProjectPlanSheetUrl(parentFolderName) || val.url)
+      : val.url;
+
+    return (
     <div key={val.name} className="folderContainer">
       <div className="subFolderTabs">
         <div
@@ -144,7 +147,7 @@ function displayLoop(x) {
           onClick={() =>
             val.type === "folder"
               ? toggleFolder(val.id)
-              : (dispatch(openFileLink(val.url)), dispatch(changeBreadcrumb(val.name)),setFileSelected(val.id))
+              : (dispatch(openFileLink(resolvedUrl)), dispatch(changeBreadcrumb(val.name)), setFileSelected(val.id))
           }
         >
           {val.type === "folder" ? (
@@ -195,11 +198,12 @@ function displayLoop(x) {
         openFolders[val.id] &&
         val.children?.length > 0 && (
           <div className="subFolderChildren" style={{ marginLeft: "20px" }}>
-            {displayLoop(val.children)}
+            {displayLoop(val.children, val.name)}
           </div>
         )}
     </div>
-  ));
+    );
+  });
 }
 
 
@@ -208,7 +212,7 @@ function displayLoop(x) {
     <div className="folderSection">
       <div className="folderTabs">
         <div>
-          <h5>Browse</h5>
+          <h5>Browse222</h5>
         </div>
         <div>
           <img

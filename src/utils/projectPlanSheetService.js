@@ -49,7 +49,8 @@ export const getStoredProjectPlanSheets = () => {
 
 export const storeProjectPlanSheet = (projectName, sheetUrl, spreadsheetId) => {
   const sheets = getStoredProjectPlanSheets();
-  sheets[projectName] = { sheetUrl, spreadsheetId, createdAt: new Date().toISOString() };
+  const resolvedId = spreadsheetId || sheetUrl?.split('/d/')[1]?.split('/')[0] || null;
+  sheets[projectName] = { sheetUrl, spreadsheetId: resolvedId, createdAt: new Date().toISOString() };
   localStorage.setItem(PROJECT_PLAN_SHEETS_KEY, JSON.stringify(sheets));
 };
 
@@ -70,6 +71,59 @@ export const getConsolidatedSheetId = () => {
 
 export const storeConsolidatedSheet = (sheetUrl, spreadsheetId) => {
   localStorage.setItem(CONSOLIDATED_SHEET_KEY, JSON.stringify({ sheetUrl, spreadsheetId, createdAt: new Date().toISOString() }));
+};
+
+export const syncConsolidatedSheet = async (gapi) => {
+  try {
+    const consolidatedSheetId = getConsolidatedSheetId();
+    if (!consolidatedSheetId) return;
+
+    const allSheets = getStoredProjectPlanSheets();
+    const allRows = [];
+
+    for (const [projectName, sheetData] of Object.entries(allSheets)) {
+      const spreadsheetId = sheetData.spreadsheetId || sheetData.sheetUrl?.split('/d/')[1]?.split('/')[0];
+      if (!spreadsheetId || spreadsheetId === 'null') {
+        console.warn(`Skipping ${projectName} - invalid spreadsheetId`);
+        continue;
+      }
+      try {
+        const res = await gapi.client.sheets.spreadsheets.values.get({
+          spreadsheetId,
+          range: 'A2:Q'
+        });
+        const rows = (res.result.values || []).filter(row => row.some(cell => cell && cell.toString().trim() !== ''));
+        console.log(`${projectName}: found ${rows.length} rows`);
+        allRows.push(...rows);
+      } catch (e) {
+        console.warn(`Skipping ${projectName} due to fetch error:`, e?.result?.error?.message || e);
+      }
+    }
+
+    console.log(`Total rows to write: ${allRows.length}`);
+
+    if (allRows.length === 0) {
+      console.warn('No data found across all project sheets');
+      return;
+    }
+
+    await gapi.client.sheets.spreadsheets.values.clear({
+      spreadsheetId: consolidatedSheetId,
+      range: 'A2:Q'
+    });
+
+    await gapi.client.sheets.spreadsheets.values.update({
+      spreadsheetId: consolidatedSheetId,
+      range: 'A2',
+      valueInputOption: 'RAW',
+      resource: { values: allRows }
+    });
+
+    console.log('Consolidated sheet synced successfully');
+  } catch (error) {
+    console.error('Error syncing consolidated sheet:', error);
+    throw error;
+  }
 };
 
 export const createProjectPlanSheet = async (projectName, gapi) => {
@@ -98,13 +152,11 @@ export const createProjectPlanSheet = async (projectName, gapi) => {
       'Tasks Assigned (Current Sprint)', 'Risks','Any Comments'
     ];
 
-    const initialRow = [projectName, '', '', '', '', '', '', '', '', '', '', '', '', '', ''];
-
     await gapi.client.sheets.spreadsheets.values.update({
       spreadsheetId: spreadsheetId,
       range: 'A1',
       valueInputOption: 'RAW',
-      resource: { values: [headers, initialRow] }
+      resource: { values: [headers] }
     });
 
     await gapi.client.sheets.spreadsheets.batchUpdate({
@@ -140,29 +192,9 @@ export const createProjectPlanSheet = async (projectName, gapi) => {
       console.warn('Could not set public edit permissions:', permError);
     }
 
-    const allSheetIds = getAllProjectSheetIds();
-    const formulas = allSheetIds.map(id => 
-      `QUERY(IMPORTRANGE("${id}","Sheet1!A2:Q"),"SELECT * WHERE Col1 IS NOT NULL")`
-    );
-    
-    formulas.push(`QUERY(IMPORTRANGE("${spreadsheetId}","Sheet1!A2:Q"),"SELECT * WHERE Col1 IS NOT NULL")`);
-    
-    const combinedFormula = `={${formulas.join(';')}}`;
-    
-    await gapi.client.sheets.spreadsheets.values.clear({
-      spreadsheetId: consolidatedSheetId,
-      range: 'A2:Q'
-    });
-    
-    await gapi.client.sheets.spreadsheets.values.update({
-      spreadsheetId: consolidatedSheetId,
-      range: 'A2',
-      valueInputOption: 'USER_ENTERED',
-      resource: { values: [[combinedFormula]] }
-    });
-
     const sheetUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`;
     storeProjectPlanSheet(projectName, sheetUrl, spreadsheetId);
+    await syncConsolidatedSheet(gapi);
 
     return { sheetUrl, spreadsheetId, isNew: true };
   } catch (error) {

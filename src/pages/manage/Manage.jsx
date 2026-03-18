@@ -169,45 +169,29 @@ function Manage() {
 }  
 
   return (
-    <div className="folderSection" style={{ width: "100%" }}>
+    <div style={{ width: "100%" }}>
       <div
-        className="folderTabs"
         style={{
+          display: "flex",
           justifyContent: "space-between",
+          alignItems: "center",
           width: "82%",
           marginLeft: "2rem",
+          marginBottom: "1rem",
+          marginTop: "1rem",
         }}
       >
         <div>
           <h5>Manage</h5>
-          <p>Click on the file to update it's Link:</p>
+          <p>Click on the file to update its Link:</p>
         </div>
         <div>
-          <img
-            src={AddFolderImg}
-            alt="Add Folder Image"
-            width="35"
-            onClick={(e) => {
-              e.stopPropagation();
-              dispatch(createFolder(0));
-            }}
-          />
-
-          <img
-            src={AddFileImg}
-            alt="Add File Image"
-            width="35"
-            style={{ marginLeft: "8px" }}
-            onClick={(e) => {
-              e.stopPropagation();
-              dispatch(createFile(0));
-            }}
-          />
+          <img src={AddFolderImg} alt="Add Folder" width="35" onClick={(e) => { e.stopPropagation(); dispatch(createFolder(0)); }} />
+          <img src={AddFileImg} alt="Add File" width="35" style={{ marginLeft: "8px" }} onClick={(e) => { e.stopPropagation(); dispatch(createFile(0)); }} />
         </div>
       </div>
       <ManageClientProjectTree />
-    
-      <div style={{ marginLeft: "2rem" }}>{displayLoop(value)}</div>
+      {/* <div style={{ marginLeft: "2rem" }}>{displayLoop(value)}</div> */}
     </div>
   );
 }

@@ -359,6 +359,19 @@ const createFolderFilesSlice = createSlice({
       let targetId = action.payload;
       state.value = updateLink(state.value, targetId);
     },
+    updateFileLinkByName(state, action) {
+      const { projectName, url } = action.payload;
+      function updateByName(arr) {
+        arr.forEach(item => {
+          if (item.type === 'folder' && item.name === projectName) {
+            const planFile = item.children?.find(c => c.name === 'Project Plan');
+            if (planFile) planFile.url = url;
+          }
+          if (item.children) updateByName(item.children);
+        });
+      }
+      updateByName(state.value);
+    },
     renameFile(state, action) {
       let targetId = action.payload;
       state.value = renameById(state.value, targetId);
@@ -375,6 +388,7 @@ export const {
   createFile,
   createFolder,
   updateFileLink,
+  updateFileLinkByName,
   renameFile,
   deleteFile,
 } = createFolderFilesSlice.actions;

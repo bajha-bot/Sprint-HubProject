@@ -9,7 +9,7 @@ function Browse() {
 
   return (
     <div className="browseScreen">
-      {/* <FolderSection /> */}
+      <FolderSection />
       <ContentSection selectedFileUrl={selectedFileUrl}/>
     </div> 
   );

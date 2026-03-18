@@ -2,6 +2,10 @@ import React from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { toggleClient, toggleProject } from '../features/clientProjectTreeSlice';
 import { renameFile, deleteFile, createFolder, createFile } from '../features/createFolderFilesSlice';
+import { openFileLink } from '../features/openFileSlice';
+import { changeBreadcrumb } from '../features/breadcrumbSlice';
+import { getProjectPlanSheetUrl, storeProjectPlanSheet } from '../utils/projectPlanSheetService';
+import { updateFileLinkByName } from '../features/createFolderFilesSlice';
 import useGetAllEmployees from '../hooks/useGetAllEmployees';
 import FolderImg from '/folder.webp';
 import FolderOpenImg from '/open-folder.webp';
@@ -25,6 +29,23 @@ const ManageClientProjectTree = () => {
     dispatch(toggleProject(projectName));
   };
 
+  const handleProjectPlanClick = (projectName, fileName) => {
+    const storageKey = `sprintHub_${projectName}_${fileName}`;
+    const storedUrl = localStorage.getItem(storageKey);
+    const autoUrl = getProjectPlanSheetUrl(projectName);
+    const currentUrl = storedUrl || autoUrl || 'Not set';
+    const newUrl = prompt(
+      `Your current ${fileName} URL is:\n\n${currentUrl}\n\nEnter the New Link below and press OK to Update:`
+    );
+    if (newUrl) {
+      localStorage.setItem(storageKey, newUrl);
+      if (fileName === 'Project Plan13') {
+        storeProjectPlanSheet(projectName, newUrl, null);
+        dispatch(updateFileLinkByName({ projectName, url: newUrl }));
+      }
+    }
+  };
+
   if (!employeeData?.records) return null;
 
   return (
@@ -44,18 +65,10 @@ const ManageClientProjectTree = () => {
         )];
         
         return (
-          <div key={clientName} className="folderContainer">
-            <div className="subFolderTabs" style={{ justifyContent: "flex-start" }}>
+          <div key={clientName} style={{ marginBottom: '4px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', marginBottom: '4px' }}>
               <div
-                className="isFolder"
-                style={{
-                  display: "flex",
-                  width: "80%",
-                  alignItems: "center",
-                  cursor: "pointer",
-                  border: "1px solid #0583ff",
-                  borderRadius: "5px",
-                }}
+                style={{ display: 'flex', width: '80%', alignItems: 'center', cursor: 'pointer', border: '1px solid #0583ff', borderRadius: '5px', padding: '2px 8px' }}
                 onClick={() => handleClientToggle(clientName)}
               >
                 <div>
@@ -74,7 +87,7 @@ const ManageClientProjectTree = () => {
                     className="folderIcon"
                   />
                 </div>
-                <p>{clientName}</p>
+                <p style={{ margin: 0, paddingLeft: '5px', fontSize: '13px', fontWeight: 'bold' }}>{clientName}</p>
 
                 <div style={{ marginLeft: "auto", display: "flex" }}>
                   <div
@@ -85,7 +98,7 @@ const ManageClientProjectTree = () => {
                     }}
                   >
                     <img src={AddUser} width="20" />
-                    <p style={{ marginLeft: 5 }}>Add User</p>
+                    <p style={{ margin: 0, marginLeft: 5, fontSize: '12px' }}>Add User</p>
                   </div>
 
                   <div
@@ -138,20 +151,12 @@ const ManageClientProjectTree = () => {
 
             {/* Render projects */}
             {openedClients.includes(clientName) && clientProjects.length > 0 && (
-              <div className="subFolderChildren" style={{ marginLeft: "20px" }}>
+              <div style={{ marginLeft: '20px' }}>
                 {clientProjects.map(projectName => (
-                  <div key={projectName} className="folderContainer">
-                    <div className="subFolderTabs" style={{ justifyContent: "flex-start" }}>
+                  <div key={projectName} style={{ marginBottom: '4px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', marginBottom: '4px' }}>
                       <div
-                        className="isFolder"
-                        style={{
-                          display: "flex",
-                          width: "80%",
-                          alignItems: "center",
-                          cursor: "pointer",
-                          border: "1px solid #0583ff",
-                          borderRadius: "5px",
-                        }}
+                        style={{ display: 'flex', width: '80%', alignItems: 'center', cursor: 'pointer', border: '1px solid #0583ff', borderRadius: '5px', padding: '2px 8px' }}
                         onClick={() => handleProjectToggle(projectName)}
                       >
                         <div>
@@ -170,7 +175,7 @@ const ManageClientProjectTree = () => {
                             className="folderIcon"
                           />
                         </div>
-                        <p>{projectName}</p>
+                        <p style={{ margin: 0, paddingLeft: '5px', fontSize: '13px', fontWeight: 'bold' }}>{projectName}</p>
 
                         <div style={{ marginLeft: "auto", display: "flex" }}>
                           <div
@@ -234,25 +239,20 @@ const ManageClientProjectTree = () => {
 
                     </div>
 
-                    {/* Render project files */}
                     {openedProjects.includes(projectName) && (
-                      <div className="subFolderChildren" style={{ marginLeft: "20px" }}>
-                        {['Project Team', 'Project Plan', 'Project Dashboard'].map(fileName => (
-                          <div key={fileName} className="folderContainer">
-                            <div className="subFolderTabs" style={{ justifyContent: "flex-start" }}>
+                      <div style={{ marginLeft: '20px' }}>
+                        {['Project Team12', 'Project Plan13', 'Project Dashboard14'].map(fileName => (
+                          <div key={fileName} style={{ marginBottom: '4px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start' }}>
                               <div
-                                className="isFile"
-                                style={{
-                                  display: "flex",
-                                  width: "80%",
-                                  alignItems: "center",
-                                  cursor: "pointer",
-                                  border: "1px solid #0583ff",
-                                  borderRadius: "5px",
+                                style={{ display: 'flex', width: '80%', alignItems: 'center', cursor: 'pointer', border: '1px solid #0583ff', borderRadius: '5px', padding: '2px 8px' }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleProjectPlanClick(projectName, fileName);
                                 }}
                               >
                                 <img src={FileImg} alt="File" width="17" />
-                                <p>{fileName}</p>
+                                <p style={{ margin: 0, paddingLeft: '5px', fontSize: '13px' }}>{fileName}</p>
 
                                 <div style={{ marginLeft: "auto", display: "flex" }}>
                                   <div
@@ -285,7 +285,7 @@ const ManageClientProjectTree = () => {
                                     }}
                                   >
                                     <img src={DeleteImg} width="22" />
-                                    <p>Delete</p>
+                                    <p>Delete12</p>
                                   </div>
                                 </div>
                               </div>

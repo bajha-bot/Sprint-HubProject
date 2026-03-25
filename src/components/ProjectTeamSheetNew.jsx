@@ -1,0 +1,150 @@
+import React, { useState, useEffect } from 'react';
+import { initializeGoogleAPI, initializeGIS, authenticate } from '../utils/googleSheetsService';
+import {
+  createProjectTeamSheet,
+  createTeamConsolidatedSheet,
+  getProjectTeamSheetUrl,
+  getTeamConsolidatedSheetUrl,
+  syncTeamConsolidatedSheet
+} from '../utils/projectTeamSheetService';
+
+const ProjectTeamSheetNew = ({ projectName }) => {
+  const [sheetUrl, setSheetUrl] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [isNew, setIsNew] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+
+  const handleSync = async () => {
+    try {
+      setSyncing(true);
+      await syncTeamConsolidatedSheet(window.gapi);
+      alert('Team consolidated sheet updated successfully!');
+    } catch (err) {
+      alert('Sync failed: ' + err.message);
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  useEffect(() => {
+    const initializeSheet = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const existingUrl = getProjectTeamSheetUrl(projectName);
+        if (existingUrl) {
+          setSheetUrl(existingUrl);
+          setLoading(false);
+          return;
+        }
+
+        if (!window.gapi || !window.google) {
+          throw new Error('Google APIs not loaded. Please refresh the page.');
+        }
+
+        await Promise.all([initializeGoogleAPI(), initializeGIS()]);
+
+        if (window.gapi.client.getToken() === null) {
+          await authenticate();
+        }
+
+        // Ensure consolidated sheet exists before creating individual team sheet
+        await createTeamConsolidatedSheet(window.gapi);
+
+        const result = await createProjectTeamSheet(projectName, window.gapi);
+        setSheetUrl(result.sheetUrl);
+        setIsNew(result.isNew);
+        if (result.isNew && result.sheetUrl) {
+          window.open(result.sheetUrl, '_blank');
+        }
+      } catch (err) {
+        console.error('Error initializing team sheet:', err);
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (projectName) initializeSheet();
+  }, [projectName]);
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>
+        <div className="spinner-border text-primary" role="status" style={{ width: '3rem', height: '3rem' }}>
+          <span className="visually-hidden">Loading...</span>
+        </div>
+        <p style={{ marginTop: '20px', fontSize: '1.1rem' }}>Creating project team sheet for {projectName}...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div style={{ padding: '20px', textAlign: 'center' }}>
+        <div style={{ backgroundColor: '#f8d7da', color: '#721c24', padding: '15px', borderRadius: '8px', marginBottom: '20px' }}>
+          <h4>Error</h4>
+          <p>{error}</p>
+        </div>
+        <button
+          onClick={() => window.location.reload()}
+          style={{ padding: '10px 20px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+        >
+          Refresh Page
+        </button>
+      </div>
+    );
+  }
+
+  const consolidatedUrl = getTeamConsolidatedSheetUrl();
+
+  return (
+    <div style={{ width: '100%', height: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ padding: '15px', backgroundColor: '#f5f5f5', borderBottom: '1px solid #ddd', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h3 style={{ margin: 0 }}>{projectName} - Project Team</h3>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button
+            onClick={handleSync}
+            disabled={syncing}
+            style={{ padding: '8px 16px', backgroundColor: '#17a2b8', color: 'white', border: 'none', borderRadius: '4px', fontSize: '14px', cursor: syncing ? 'not-allowed' : 'pointer' }}
+          >
+            {syncing ? 'Syncing...' : 'Sync to Consolidated'}
+          </button>
+          {consolidatedUrl && (
+            <a
+              href={consolidatedUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ padding: '8px 16px', backgroundColor: '#28a745', color: 'white', textDecoration: 'none', borderRadius: '4px', fontSize: '14px' }}
+            >
+              View All Projects
+            </a>
+          )}
+          <a
+            href={sheetUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ padding: '8px 16px', backgroundColor: '#2a89ac', color: 'white', textDecoration: 'none', borderRadius: '4px', fontSize: '14px' }}
+          >
+            Open in New Tab
+          </a>
+        </div>
+      </div>
+      <div style={{ padding: '10px 15px', backgroundColor: '#d1ecf1', borderBottom: '1px solid #bee5eb', fontSize: '0.85rem', color: '#0c5460' }}>
+        <strong>Sheet ID:</strong> {sheetUrl?.split('/d/')[1]?.split('/')[0]} — Team sheet for {projectName}
+      </div>
+      {sheetUrl && (
+        <iframe
+          key={sheetUrl}
+          src={sheetUrl}
+          style={{ width: '100%', height: '100%', border: 'none', flex: 1 }}
+          title={`${projectName} Project Team`}
+        />
+      )}
+    </div>
+  );
+};
+
+export default ProjectTeamSheetNew;

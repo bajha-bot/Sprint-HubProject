@@ -29,11 +29,26 @@ const ManageClientProjectTree = () => {
     dispatch(toggleProject(projectName));
   };
 
+  const getLegacyUrl = (projectName, manageKey) => {
+    const legacyKeyMap = {
+      'Project Team12': 'sprintHub_projectTeam_sheets',
+      'Project Plan13': 'sprintHub_projectPlan_sheets',
+      'Project Dashboard14': 'sprintHub_projectDashboard_sheets',
+    };
+    const legacyKey = legacyKeyMap[manageKey];
+    if (!legacyKey) return null;
+    try {
+      const data = JSON.parse(localStorage.getItem(legacyKey));
+      return data?.[projectName]?.sheetUrl || null;
+    } catch { return null; }
+  };
+
   const handleProjectPlanClick = (projectName, fileName) => {
     const storageKey = `sprintHub_${projectName}_${fileName}`;
-    const storedUrl = localStorage.getItem(storageKey);
-    const autoUrl = getProjectPlanSheetUrl(projectName);
-    const currentUrl = storedUrl || autoUrl || 'Not set';
+    const storedUrl = localStorage.getItem(storageKey)
+      || getLegacyUrl(projectName, fileName)
+      || (fileName === 'Project Plan13' ? getProjectPlanSheetUrl(projectName) : null);
+    const currentUrl = storedUrl || 'Not set';
     const newUrl = prompt(
       `Your current ${fileName} URL is:\n\n${currentUrl}\n\nEnter the New Link below and press OK to Update:`
     );

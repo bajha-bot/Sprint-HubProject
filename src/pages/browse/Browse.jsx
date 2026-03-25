@@ -11,16 +11,46 @@ function Browse() {
   const selectedFileUrl = useSelector((state) => state.changeFileLink.link);
   const dispatch = useDispatch();
 
+  const DASHBOARD_URLS = {
+    'Tokenizacion': 'https://app.powerbi.com/groups/me/reports/7c43af94-4751-4aa7-be8c-31ddcf2f102f/ed063bcd01028b032c80?ctid=06408ebc-5eb8-4b0d-827f-76dd3b58bc84&experience=power-bi&clientSideAuth=0',
+  };
+
+  const getLegacyUrl = (projectName, manageKey) => {
+    const legacyKeyMap = {
+      'Project Team12': 'sprintHub_projectTeam_sheets',
+      'Project Plan13': 'sprintHub_projectPlan_sheets',
+      'Project Dashboard14': 'sprintHub_projectDashboard_sheets',
+    };
+    const legacyKey = legacyKeyMap[manageKey];
+    if (!legacyKey) return null;
+    try {
+      const data = JSON.parse(localStorage.getItem(legacyKey));
+      return data?.[projectName]?.sheetUrl || null;
+    } catch { return null; }
+  };
+
   const handleFileClick = (projectName, fileName, manageKey) => {
     const storageKey = `sprintHub_${projectName}_${manageKey}`;
     const storedUrl = localStorage.getItem(storageKey)
-      || (fileName === 'Project Plan' ? getProjectPlanSheetUrl(projectName) : null);
+      || getLegacyUrl(projectName, manageKey)
+      || (manageKey === 'Project Dashboard14' ? DASHBOARD_URLS[projectName] : null)
+      || (manageKey === 'Project Plan13' ? getProjectPlanSheetUrl(projectName) : null);
 
     if (storedUrl) {
-      dispatch(openFileLink(storedUrl));
-      dispatch(changeBreadcrumb(`${projectName} - ${fileName}`));
+      if (manageKey === 'Project Dashboard14') {
+        window.open(storedUrl, '_blank');
+        dispatch(changeBreadcrumb(`${projectName} - ${fileName}`));
+      } else {
+        dispatch(openFileLink(storedUrl));
+        dispatch(changeBreadcrumb(`${projectName} - ${fileName}`));
+      }
     } else {
-      alert(`No URL set for ${fileName} of ${projectName}. Please set it in Manage section first.`);
+      const newUrl = window.prompt(`Enter the ${fileName} URL for ${projectName}:`);
+      if (newUrl && newUrl.trim()) {
+        localStorage.setItem(storageKey, newUrl.trim());
+        dispatch(openFileLink(newUrl.trim()));
+        dispatch(changeBreadcrumb(`${projectName} - ${fileName}`));
+      }
     }
   };
 

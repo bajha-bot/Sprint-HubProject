@@ -3,8 +3,8 @@ import "../browse/Browse.css";
 import ContentSection1 from "../../components/browser/contentSection/ContentSection1";
 import ClientProjectTree from "../../components/ClientProjectTree";
 import ProjectPlanSheetNew from "../../components/ProjectPlanSheetNew";
+import ProjectTeamSheetNew from "../../components/ProjectTeamSheetNew";
 import AllProjectsSheet from "../../components/AllProjectsSheet";
-
 import GoogleSheetSetupGuide from "../../components/GoogleSheetSetupGuide";
 import { useSelector, useDispatch } from "react-redux";
 import { openFileLink } from "../../features/openFileSlice";
@@ -16,6 +16,13 @@ function Browser() {
   const [activeTab, setActiveTab] = useState('browser');
   const dispatch = useDispatch();
 
+  const handleProjectTeamClick = (clientName, projectName) => {
+    setSelectedProject(projectName);
+    setActiveTab('browser');
+    dispatch(openFileLink('project-team'));
+    dispatch(changeBreadcrumb(`${projectName} - Project Team`));
+  };
+
   const handleProjectPlanClick = (clientName, projectName) => {
     setSelectedProject(projectName);
     setActiveTab('browser');
@@ -24,12 +31,21 @@ function Browser() {
   };
 
   const handleProjectDashboard = (clientName, projectName) => {
-    console.log('handleProjectDashboard called:', clientName, projectName);
-    setSelectedProject(projectName);
-    setActiveTab('browser');
-    dispatch(openFileLink('project-dashboard'));
+    const DASHBOARD_URLS = {
+      'Tokenizacion': 'https://app.powerbi.com/groups/me/reports/7c43af94-4751-4aa7-be8c-31ddcf2f102f/ed063bcd01028b032c80?ctid=06408ebc-5eb8-4b0d-827f-76dd3b58bc84&experience=power-bi&clientSideAuth=0',
+    };
+    const storageKey = `sprintHub_${projectName}_Project Dashboard14`;
+    const storedUrl = localStorage.getItem(storageKey) || DASHBOARD_URLS[projectName];
+    if (storedUrl) {
+      window.open(storedUrl, '_blank');
+    } else {
+      const newUrl = window.prompt(`Enter the Project Dashboard URL for ${projectName}:`);
+      if (newUrl && newUrl.trim()) {
+        localStorage.setItem(storageKey, newUrl.trim());
+        window.open(newUrl.trim(), '_blank');
+      }
+    }
     dispatch(changeBreadcrumb(`${projectName} - Dashboard`));
-    console.log('Dispatched project-dashboard');
   };
 
   return (
@@ -55,7 +71,7 @@ function Browser() {
             </button> */}
           </div>
         </div>
-        <ClientProjectTree showActions={true} onProjectTeamClick={() => {}} onProjectPlanClick={handleProjectPlanClick} onProjectDashboardClick={handleProjectDashboard} />
+        <ClientProjectTree showActions={true} onProjectTeamClick={handleProjectTeamClick} onProjectPlanClick={handleProjectPlanClick} onProjectDashboardClick={handleProjectDashboard} />
         <div style={{ marginTop: "1rem" }}>
           {/* Project Dashboard links will be handled by ClientProjectTree */}
         </div>
@@ -63,7 +79,9 @@ function Browser() {
       {activeTab === 'all-projects' ? (
         <AllProjectsSheet />
       ) : (selectedFileUrl === 'project-dashboard' || selectedFileUrl?.includes('/project-dashboard/')) && selectedProject ? (
-        <PowerBIDashboard projectName={selectedProject} />
+        <ContentSection1 selectedFileUrl={selectedFileUrl} />
+      ) : selectedFileUrl === 'project-team' && selectedProject ? (
+        <ProjectTeamSheetNew projectName={selectedProject} />
       ) : selectedFileUrl === 'project-plan' && selectedProject ? (
         <ProjectPlanSheetNew projectName={selectedProject} />
       ) : selectedFileUrl === 'sheet-setup' ? (

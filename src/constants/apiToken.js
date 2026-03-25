@@ -5,7 +5,7 @@ import { STORAGE_KEYS } from './storageKeys';
 // curl -X POST https://prodbe-myteam.mynisum.com/myTeam/auth/generate-token \
 //   -H "Content-Type: application/json" \
 //   -d '{"consumerId":"nisum-university","sub":"nisum-university-app"}'
-const INITIAL_TOKEN = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJuaXN1bS11bml2ZXJzaXR5LWFwcCIsImNvbnN1bWVySWQiOiJuaXN1bS11bml2ZXJzaXR5IiwiaWF0IjoxNzczODI0Njc0LCJleHAiOjE3NzM4MjgyNzR9.6Cf-MZWTW6MY5E6N1GJV_5TVPV-MQrKsRbqSLJy5Qec';
+const INITIAL_TOKEN = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJuaXN1bS11bml2ZXJzaXR5LWFwcCIsImNvbnN1bWVySWQiOiJuaXN1bS11bml2ZXJzaXR5IiwiaWF0IjoxNzc0NDE4OTkzLCJleHAiOjE3NzQ0MjI1OTN9.C5Sun-lI-ZFs8GQsKxehoFvf0YKIy1JfJ0bEQdFOjFo';
 
 // Token refresh endpoint
 const TOKEN_REFRESH_URL = import.meta.env.PROD

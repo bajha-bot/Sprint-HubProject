@@ -23,9 +23,25 @@ const ClientProjectTree = ({ onProjectTeamClick, onProjectPlanClick, onProjectDa
     dispatch(toggleProject(projectName));
   };
 
+  const getLegacyUrl = (projectName, manageKey) => {
+    const legacyKeyMap = {
+      'Project Team12': 'sprintHub_projectTeam_sheets',
+      'Project Plan13': 'sprintHub_projectPlan_sheets',
+      'Project Dashboard14': 'sprintHub_projectDashboard_sheets',
+    };
+    const legacyKey = legacyKeyMap[manageKey];
+    if (!legacyKey) return null;
+    try {
+      const data = JSON.parse(localStorage.getItem(legacyKey));
+      return data?.[projectName]?.sheetUrl || null;
+    } catch { return null; }
+  };
+
   const handleFileClick = (clientName, projectName, fileName, manageKey) => {
     const storageKey = `sprintHub_${projectName}_${manageKey}`;
-    const storedUrl = localStorage.getItem(storageKey) || getProjectPlanSheetUrl(projectName);
+    const storedUrl = localStorage.getItem(storageKey)
+      || getLegacyUrl(projectName, manageKey)
+      || (manageKey === 'Project Plan13' ? getProjectPlanSheetUrl(projectName) : null);
     if (storedUrl) {
       dispatch(openFileLink(storedUrl));
       dispatch(changeBreadcrumb(`${projectName} - ${fileName}`));
@@ -38,14 +54,6 @@ const ClientProjectTree = ({ onProjectTeamClick, onProjectPlanClick, onProjectDa
         dispatch(changeBreadcrumb(`${projectName} - ${fileName}`));
       }
     }
-  };
-
-  const handleProjectDashboard = (clientName, projectName) => {
-    if (showActions) {
-      navigate("/browse");
-    }
-    dispatch(openFileLink(`/project-dashboard/${clientName}/${projectName}`));
-    dispatch(changeBreadcrumb(`${projectName} - Dashboard`));
   };
 
   if (!employeeData?.records) return null;
@@ -106,7 +114,7 @@ const ClientProjectTree = ({ onProjectTeamClick, onProjectPlanClick, onProjectDa
                           </div>
                           <div 
                             style={{ display: "flex", cursor: "pointer", marginBottom: "0.2rem" }}
-                            onClick={() => onProjectDashboardClick?.(clientName, projectName)}
+                            onClick={() => onProjectDashboardClick ? onProjectDashboardClick(clientName, projectName) : handleFileClick(clientName, projectName, 'Project Dashboard', 'Project Dashboard14')}
                           >
                             <img src={fileImg} height={16} />
                             <span style={{ marginLeft: "8px", fontSize: "0.8rem" }}>Project Dashboard1</span>

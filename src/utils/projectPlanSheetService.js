@@ -211,7 +211,7 @@ export const createConsolidatedProjectSheet = async (projects, gapi) => {
     }
 
     const createResponse = await gapi.client.sheets.spreadsheets.create({
-      properties: { title: 'All_Projects_Consolidated' }
+      properties: { title: 'All_Project-Plan_Consolidated Merge Sheet' }
     });
 
     const spreadsheetId = createResponse.result.spreadsheetId;

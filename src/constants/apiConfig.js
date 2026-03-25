@@ -8,11 +8,10 @@
 //   GET_ALL_EMPLOYEES: `${import.meta.env.PROD ? BASE_URL : ''}/myTeam/open-apis/getAllEmployees`,
 // };
 const BASE_URL = import.meta.env.VITE_API_BASE_URL;
-
-// export const API_BASE_URL = BASE_URL;
+const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:5000';
 
 export const API_ENDPOINTS = {
   GENERATE_TOKEN: `${BASE_URL}/myTeam/auth/generate-token`,
   REFRESH_TOKEN: `${BASE_URL}/myTeam/auth/refresh-token`,
-  GET_ALL_EMPLOYEES: `${BASE_URL}/myTeam/open-apis/getAllEmployees`,
+  GET_ALL_EMPLOYEES: `${SERVER_URL}/api/employees`,
 };

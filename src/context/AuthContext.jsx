@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { authFetch } from '../api/authFetch';
 import { setTempToken } from '../constants/apiToken';
+import { API_ENDPOINTS } from '../constants/apiConfig';
 
 const AuthContext = createContext(null);
 
@@ -19,16 +20,17 @@ export const AuthProvider = ({ children }) => {
         }
 
         setTempToken();
-        const response = await authFetch('/myTeam/open-apis/getAllEmployees');
+        const response = await authFetch(API_ENDPOINTS.GET_ALL_EMPLOYEES);
         
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
         
-        const data = await response.json();
-        setAllEmployees(data.records || []);
+        const result = await response.json();
+        const normalized = result.success ? result.data : result;
+        setAllEmployees(normalized.records || []);
         
-        const currentUser = data.records?.find(emp => emp.emailId === userEmail);
+        const currentUser = normalized.records?.find(emp => emp.emailId === userEmail);
         
         if (currentUser) {
           setUser({

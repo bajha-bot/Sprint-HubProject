@@ -32,8 +32,9 @@ const RoleBasedLogin = () => {
         throw new Error('Failed to fetch employee data');
       }
       
-      const data = await response.json();
-      const userExists = data.records?.find(emp => emp.emailId === email);
+      const result = await response.json();
+      const normalized = result.success ? result.data : result;
+      const userExists = normalized.records?.find(emp => emp.emailId === email);
       
       if (!userExists) {
         setError('Email not found in the system. Please check your email address.');

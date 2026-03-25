@@ -1,16 +1,9 @@
 import { STORAGE_KEYS } from './storageKeys';
+import { API_ENDPOINTS } from './apiConfig';
 
-// IMPORTANT: Update this token every 60 minutes when it expires
-// To get a new token, run in terminal:
-// curl -X POST https://prodbe-myteam.mynisum.com/myTeam/auth/generate-token \
-//   -H "Content-Type: application/json" \
-//   -d '{"consumerId":"nisum-university","sub":"nisum-university-app"}'
-const INITIAL_TOKEN = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJuaXN1bS11bml2ZXJzaXR5LWFwcCIsImNvbnN1bWVySWQiOiJuaXN1bS11bml2ZXJzaXR5IiwiaWF0IjoxNzc0NDE4OTkzLCJleHAiOjE3NzQ0MjI1OTN9.C5Sun-lI-ZFs8GQsKxehoFvf0YKIy1JfJ0bEQdFOjFo';
+const INITIAL_TOKEN = import.meta.env.VITE_INITIAL_TOKEN;
 
-// Token refresh endpoint
-const TOKEN_REFRESH_URL = import.meta.env.PROD
-  ? 'https://prodbe-myteam.mynisum.com/myTeam/auth/generate-token'
-  : '/myTeam/auth/generate-token';
+const TOKEN_REFRESH_URL = API_ENDPOINTS.GENERATE_TOKEN;
 
 // Fetch new token from API
 const fetchNewToken = async () => {

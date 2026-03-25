@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authFetch } from '../api/authFetch';
+import { API_ENDPOINTS } from '../constants/apiConfig';
 import './EmployeeStatsCard.css';
 
 const RoleBasedLogin = () => {
@@ -24,9 +25,7 @@ const RoleBasedLogin = () => {
     setError('');
     
     try {
-      const apiUrl = import.meta.env.PROD 
-        ? 'https://prodbe-myteam.mynisum.com/myTeam/open-apis/getAllEmployees'
-        : '/myTeam/open-apis/getAllEmployees';
+      const apiUrl = API_ENDPOINTS.GET_ALL_EMPLOYEES;
       const response = await authFetch(apiUrl);
       
       if (!response.ok) {

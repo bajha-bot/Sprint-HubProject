@@ -6,6 +6,7 @@ import { openFileLink } from '../features/openFileSlice';
 import { changeBreadcrumb } from '../features/breadcrumbSlice';
 import { getProjectPlanSheetUrl, storeProjectPlanSheet } from '../utils/projectPlanSheetService';
 import { updateFileLinkByName } from '../features/createFolderFilesSlice';
+import { canAccessClient, canAccessProject } from '../utils/roleBasedAccess';
 import useGetAllEmployees from '../hooks/useGetAllEmployees';
 import FolderImg from '/folder.webp';
 import FolderOpenImg from '/open-folder.webp';
@@ -16,7 +17,7 @@ import DeleteImg from '/deleteImg.webp';
 import RenameImg from '/rename.webp';
 import AddUser from '/adduser.webp';
 
-const ManageClientProjectTree = () => {
+const ManageClientProjectTree = ({ user }) => {
   const dispatch = useDispatch();
   const { data: employeeData } = useGetAllEmployees();
   const { openedClients, openedProjects } = useSelector(state => state.clientProjectTree);
@@ -63,21 +64,27 @@ const ManageClientProjectTree = () => {
 
   if (!employeeData?.records) return null;
 
+  const allClients = [...new Set(employeeData.records.map(emp =>
+    emp.employeeAllocationDataDTO?.parentAccount?.accountName || emp.employeeLocation || 'Unassigned'
+  ))].sort();
+
+  const visibleClients = user
+    ? allClients.filter(c => canAccessClient(user, c))
+    : allClients;
+
   return (
     <div style={{ marginLeft: "2rem" }}>
-      {[...new Set(employeeData.records.map(emp => 
-        emp.employeeAllocationDataDTO?.parentAccount?.accountName || emp.employeeLocation || 'Unassigned'
-      ))].sort().map(clientName => {
-        // Get all employees for this client
-        const clientEmployees = employeeData.records.filter(emp => 
+      {visibleClients.map(clientName => {
+        const clientEmployees = employeeData.records.filter(emp =>
           (emp.employeeAllocationDataDTO?.parentAccount?.accountName || emp.employeeLocation || 'Unassigned') === clientName
         );
-        
-        // Extract project names from allocation data
-        const clientProjects = [...new Set(clientEmployees
+        const allProjects = [...new Set(clientEmployees
           .map(emp => emp.employeeAllocationDataDTO?.project?.projectName)
-          .filter(project => project && project.trim() !== '')
+          .filter(p => p && p.trim() !== '')
         )];
+        const clientProjects = user
+          ? allProjects.filter(p => canAccessProject(user, clientName, p))
+          : allProjects;
         
         return (
           <div key={clientName} style={{ marginBottom: '4px' }}>
@@ -267,7 +274,9 @@ const ManageClientProjectTree = () => {
                                 }}
                               >
                                 <img src={FileImg} alt="File" width="17" />
-                                <p style={{ margin: 0, paddingLeft: '5px', fontSize: '13px' }}>{fileName}</p>
+                                <p style={{ margin: 0, paddingLeft: '5px', fontSize: '13px' }}>
+                                  {fileName === 'Project Team12' ? 'Project Team' : fileName === 'Project Plan13' ? 'Project Plan' : 'Project Dashboard'}
+                                </p>
 
                                 <div style={{ marginLeft: "auto", display: "flex" }}>
                                   <div

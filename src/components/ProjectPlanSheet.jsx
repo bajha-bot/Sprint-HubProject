@@ -18,7 +18,7 @@ function ProjectPlanSheet({ projectName }) {
   const sheetUrl = getProjectSheetUrl(projectName);
 
   return (
-    <div style={{ width: "100%", height: "100vh", display: "flex", flexDirection: "column" }}>
+    <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column" }}>
       <div style={{ margin: 0, padding: "1rem", background: "#f5f5f5", borderBottom: "1px solid #ddd", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <h3 style={{ margin: 0 }}>{projectName} - Project Plan</h3>
         <span style={{ fontSize: "14px", color: "#666" }}>{filteredEmployees.length} employees</span>

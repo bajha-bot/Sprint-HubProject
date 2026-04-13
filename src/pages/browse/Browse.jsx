@@ -1,19 +1,35 @@
-import React from "react";
+import React, { useState } from "react";
 import "./Browse.css";
 import ContentSection from "../../components/browser/contentSection/ContentSection1";
 import ClientProjectTree from "../../components/ClientProjectTree";
+import MonthlyHealthDashboard from "../../components/MonthlyHealthDashboard";
+import ProjectShowDashboard from "../../components/ProjectShowdashboard";
+import ProjectPlanSheetNew from "../../components/ProjectPlanSheetNew";
+import ProjectTeamSheetNew from "../../components/ProjectTeamSheetNew";
 import { useSelector, useDispatch } from "react-redux";
 import { openFileLink } from "../../features/openFileSlice";
 import { changeBreadcrumb } from "../../features/breadcrumbSlice";
 import { getProjectPlanSheetUrl } from "../../utils/projectPlanSheetService";
+import useGetAllEmployees from "../../hooks/useGetAllEmployees";
+import { useAuth } from "../../context/AuthContext";
+import { useNavigate, useLocation } from "react-router-dom";
+import { canAccessClient, canAccessProject } from "../../utils/roleBasedAccess";
 
 function Browse() {
   const selectedFileUrl = useSelector((state) => state.changeFileLink.link);
   const dispatch = useDispatch();
+  const { data: employeeData } = useGetAllEmployees();
+  const [selectedProject, setSelectedProject] = useState(null);
+  const [selectedClient, setSelectedClient] = useState(null);
+  const [selectedClientProjects, setSelectedClientProjects] = useState([]);
+  const { user, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const searchClient = location.state?.searchClient || null;
+  const searchProject = location.state?.searchProject || null;
 
-  const DASHBOARD_URLS = {
-    'Tokenizacion': 'https://app.powerbi.com/groups/me/reports/7c43af94-4751-4aa7-be8c-31ddcf2f102f/ed063bcd01028b032c80?ctid=06408ebc-5eb8-4b0d-827f-76dd3b58bc84&experience=power-bi&clientSideAuth=0',
-  };
+  if (authLoading) return <div style={{ padding: '2rem' }}>Loading...</div>;
+  if (!user) { navigate('/role-based-login'); return null; }
 
   const getLegacyUrl = (projectName, manageKey) => {
     const legacyKeyMap = {
@@ -33,17 +49,10 @@ function Browse() {
     const storageKey = `sprintHub_${projectName}_${manageKey}`;
     const storedUrl = localStorage.getItem(storageKey)
       || getLegacyUrl(projectName, manageKey)
-      || (manageKey === 'Project Dashboard14' ? DASHBOARD_URLS[projectName] : null)
       || (manageKey === 'Project Plan13' ? getProjectPlanSheetUrl(projectName) : null);
-
     if (storedUrl) {
-      if (manageKey === 'Project Dashboard14') {
-        window.open(storedUrl, '_blank');
-        dispatch(changeBreadcrumb(`${projectName} - ${fileName}`));
-      } else {
-        dispatch(openFileLink(storedUrl));
-        dispatch(changeBreadcrumb(`${projectName} - ${fileName}`));
-      }
+      dispatch(openFileLink(storedUrl));
+      dispatch(changeBreadcrumb(`${projectName} - ${fileName}`));
     } else {
       const newUrl = window.prompt(`Enter the ${fileName} URL for ${projectName}:`);
       if (newUrl && newUrl.trim()) {
@@ -54,22 +63,90 @@ function Browse() {
     }
   };
 
+  const handleProjectDashboard = (clientName, projectName) => {
+    setSelectedProject(projectName);
+    setSelectedClient(clientName);
+    dispatch(openFileLink('monthly-dashboard'));
+    dispatch(changeBreadcrumb(`${projectName} - Monthly Health Dashboard`));
+  };
+
+  const handleProjectPlanClick = (clientName, projectName) => {
+    setSelectedProject(projectName);
+    setSelectedClient(clientName);
+    dispatch(openFileLink('project-plan'));
+    dispatch(changeBreadcrumb(`${projectName} - Project Plan`));
+  };
+
+  const handleProjectTeamClick = (clientName, projectName) => {
+    setSelectedProject(projectName);
+    setSelectedClient(clientName);
+    dispatch(openFileLink('project-team'));
+    dispatch(changeBreadcrumb(`${projectName} - Project Team`));
+  };
+
+  const handleAccountDashboard = (clientName, clientProjects) => {
+    setSelectedClient(clientName);
+    setSelectedProject(null);
+    setSelectedClientProjects(clientProjects);
+    dispatch(openFileLink('account-dashboard'));
+    dispatch(changeBreadcrumb(`${clientName} - Account Dashboard`));
+  };
+
+  const getProjectStats = (clientName, projectName) => {
+    if (!employeeData?.records) return {};
+    return employeeData.records
+      .filter(emp => emp.employeeAllocationDataDTO?.project?.projectName === projectName && emp.employeeAllocationDataDTO?.parentAccount?.accountName === clientName)
+      .reduce((acc, emp) => {
+        const status = emp.employeeAllocationDataDTO?.allocationStatus || '';
+        acc.totalEmployees = (acc.totalEmployees || 0) + 1;
+        if (status === 'BILLABLE') acc.billable = (acc.billable || 0) + 1;
+        if (status === 'CONFIRMED') acc.confirmed = (acc.confirmed || 0) + 1;
+        if (status === 'RESERVED') acc.reserved = (acc.reserved || 0) + 1;
+        return acc;
+      }, {});
+  };
+
   return (
     <div className="browseScreen">
-      <div style={{ background: "#ecfaff", width: "25rem", minWidth: "25rem", height: "100vh", overflowY: "scroll", paddingTop: "1rem", paddingLeft: "1rem", paddingRight: "1rem", borderRight: "1px solid #2a89ac", borderTop: "1px solid #2a89ac" }}>
+      <div style={{ background: "#ecfaff", width: "25rem", minWidth: "25rem", height: "100%", overflowY: "scroll", paddingTop: "1rem", paddingLeft: "1rem", paddingRight: "1rem", borderRight: "1px solid #2a89ac", borderTop: "1px solid #2a89ac" }}>
         <h5 style={{ marginBottom: "1rem" }}>Browse</h5>
         <ClientProjectTree
           showActions={false}
-          onProjectTeamClick={(clientName, projectName) => handleFileClick(projectName, 'Project Team', 'Project Team12')}
-          onProjectPlanClick={(clientName, projectName) => handleFileClick(projectName, 'Project Plan', 'Project Plan13')}
-          onProjectDashboardClick={(clientName, projectName) => handleFileClick(projectName, 'Project Dashboard', 'Project Dashboard14')}
+          user={user}
+          onProjectTeamClick={handleProjectTeamClick}
+          onProjectPlanClick={handleProjectPlanClick}
+          onProjectDashboardClick={handleProjectDashboard}
+          onAccountDashboardClick={handleAccountDashboard}
+          filterClient={searchClient}
+          filterProject={searchProject}
         />
       </div>
-      <ContentSection selectedFileUrl={selectedFileUrl}/>
-    </div> 
+      {selectedFileUrl === 'account-dashboard' && selectedClient ? (
+        <div style={{ flex: 1, minWidth: 0, height: '100%', overflowY: 'auto' }}>
+          <MonthlyHealthDashboard
+            clientName={selectedClient}
+            clientProjects={selectedClientProjects}
+            employeeData={employeeData}
+            projectStats={{}}
+          />
+        </div>
+      ) : selectedFileUrl === 'monthly-dashboard' && selectedProject ? (
+        <div style={{ flex: 1, minWidth: 0, height: '100%', overflowY: 'auto' }}>
+          <ProjectShowDashboard
+            projectName={selectedProject}
+            clientName={selectedClient}
+            projectStats={getProjectStats(selectedClient, selectedProject)}
+          />
+        </div>
+      ) : selectedFileUrl === 'project-plan' && selectedProject ? (
+        <ProjectPlanSheetNew projectName={selectedProject} readOnly={true} />
+      ) : selectedFileUrl === 'project-team' && selectedProject ? (
+        <ProjectTeamSheetNew projectName={selectedProject} readOnly={true} />
+      ) : (
+        <ContentSection selectedFileUrl={selectedFileUrl} />
+      )}
+    </div>
   );
 }
 
 export default Browse;
-
-

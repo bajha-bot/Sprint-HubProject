@@ -75,8 +75,8 @@ const RoleBasedClientBrowser = () => {
   const clients = Array.from(clientsMap.values()).sort((a, b) => a.accountName.localeCompare(b.accountName));
 
   return (
-    <div style={{ display: 'flex', width: '100%', minHeight: '80vh' }}>
-    <div className="stats-card" style={{ padding: '20px', minWidth: '300px', width: '300px', overflowY: 'auto' }}>
+    <div style={{ display: 'flex', width: '100%', height: '100vh' }}>
+    <div className="stats-card" style={{ padding: '20px', minWidth: '300px', width: '300px', height: '100vh', overflowY: 'auto', boxSizing: 'border-box' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <h2 className="stats-title">Teams Dashboard</h2>
         <button

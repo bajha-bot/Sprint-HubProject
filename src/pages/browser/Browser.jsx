@@ -6,18 +6,33 @@ import ProjectPlanSheetNew from "../../components/ProjectPlanSheetNew";
 import ProjectTeamSheetNew from "../../components/ProjectTeamSheetNew";
 import AllProjectsSheet from "../../components/AllProjectsSheet";
 import GoogleSheetSetupGuide from "../../components/GoogleSheetSetupGuide";
+import MonthlyHealthDashboard from "../../components/MonthlyHealthDashboard";
+
 import { useSelector, useDispatch } from "react-redux";
 import { openFileLink } from "../../features/openFileSlice";
 import { changeBreadcrumb } from "../../features/breadcrumbSlice";
+import useGetAllEmployees from "../../hooks/useGetAllEmployees";
+import { useAuth } from "../../context/AuthContext";
+import { useNavigate } from "react-router-dom";
+import ProjectShowDashboard from "../../components/ProjectShowdashboard";
 
 function Browser() {
   const selectedFileUrl = useSelector((state) => state.changeFileLink.link);
   const [selectedProject, setSelectedProject] = useState(null);
+  const [selectedClient, setSelectedClient] = useState(null);
+  const [selectedClientProjects, setSelectedClientProjects] = useState([]);
   const [activeTab, setActiveTab] = useState('browser');
   const dispatch = useDispatch();
+  const { data: employeeData } = useGetAllEmployees();
+  const { user, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
+
+  if (authLoading) return <div style={{ padding: '2rem' }}>Loading...</div>;
+  if (!user) { navigate('/role-based-login'); return null; }
 
   const handleProjectTeamClick = (clientName, projectName) => {
     setSelectedProject(projectName);
+    setSelectedClient(null);
     setActiveTab('browser');
     dispatch(openFileLink('project-team'));
     dispatch(changeBreadcrumb(`${projectName} - Project Team`));
@@ -25,34 +40,48 @@ function Browser() {
 
   const handleProjectPlanClick = (clientName, projectName) => {
     setSelectedProject(projectName);
+    setSelectedClient(null);
     setActiveTab('browser');
     dispatch(openFileLink('project-plan'));
     dispatch(changeBreadcrumb(`${projectName} - Project Plan`));
   };
 
   const handleProjectDashboard = (clientName, projectName) => {
-    const DASHBOARD_URLS = {
-      'Tokenizacion': 'https://app.powerbi.com/groups/me/reports/7c43af94-4751-4aa7-be8c-31ddcf2f102f/ed063bcd01028b032c80?ctid=06408ebc-5eb8-4b0d-827f-76dd3b58bc84&experience=power-bi&clientSideAuth=0',
-    };
-    const storageKey = `sprintHub_${projectName}_Project Dashboard14`;
-    const storedUrl = localStorage.getItem(storageKey) || DASHBOARD_URLS[projectName];
-    if (storedUrl) {
-      window.open(storedUrl, '_blank');
-    } else {
-      const newUrl = window.prompt(`Enter the Project Dashboard URL for ${projectName}:`);
-      if (newUrl && newUrl.trim()) {
-        localStorage.setItem(storageKey, newUrl.trim());
-        window.open(newUrl.trim(), '_blank');
-      }
-    }
-    dispatch(changeBreadcrumb(`${projectName} - Dashboard`));
+    setSelectedProject(projectName);
+    setSelectedClient(clientName);
+    setActiveTab('browser');
+    dispatch(openFileLink('monthly-dashboard'));
+    dispatch(changeBreadcrumb(`${projectName} - Monthly Health Dashboard`));
+  };
+
+  const handleAccountDashboard = (clientName, clientProjects) => {
+    setSelectedClient(clientName);
+    setSelectedProject(null);
+    setSelectedClientProjects(clientProjects);
+    setActiveTab('browser');
+    dispatch(openFileLink('account-dashboard'));
+    dispatch(changeBreadcrumb(`${clientName} - Account Dashboard`));
+  };
+
+  const getProjectStats = (clientName, projectName) => {
+    if (!employeeData?.records) return {};
+    return employeeData.records
+      .filter(emp => emp.employeeAllocationDataDTO?.project?.projectName === projectName && emp.employeeAllocationDataDTO?.parentAccount?.accountName === clientName)
+      .reduce((acc, emp) => {
+        const status = emp.employeeAllocationDataDTO?.allocationStatus || '';
+        acc.totalEmployees = (acc.totalEmployees || 0) + 1;
+        if (status === 'BILLABLE') acc.billable = (acc.billable || 0) + 1;
+        if (status === 'CONFIRMED') acc.confirmed = (acc.confirmed || 0) + 1;
+        if (status === 'RESERVED') acc.reserved = (acc.reserved || 0) + 1;
+        return acc;
+      }, {});
   };
 
   return (
     <div className="browseScreen">
-      <div style={{ background: "#ecfaff", width: "25rem", height: "100vh", paddingTop: "1rem", paddingLeft: "1rem", paddingRight: "1rem", borderRight: "1px solid #2a89ac", borderTop: "1px solid #2a89ac", overflowY: "scroll" }}>
+      <div style={{ background: "#ecfaff", width: "25rem", height: "100%", paddingTop: "1rem", paddingLeft: "1rem", paddingRight: "1rem", borderRight: "1px solid #2a89ac", borderTop: "1px solid #2a89ac", overflowY: "scroll" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-          <h5>Browser</h5>
+          <h5>Account dashboard</h5>
           <div style={{ display: 'flex', gap: '5px' }}>
             <button 
               onClick={() => setActiveTab('all-projects')}
@@ -71,15 +100,30 @@ function Browser() {
             </button> */}
           </div>
         </div>
-        <ClientProjectTree showActions={true} onProjectTeamClick={handleProjectTeamClick} onProjectPlanClick={handleProjectPlanClick} onProjectDashboardClick={handleProjectDashboard} />
+        <ClientProjectTree showActions={true} user={user} onProjectTeamClick={handleProjectTeamClick} onProjectPlanClick={handleProjectPlanClick} onProjectDashboardClick={handleProjectDashboard} onAccountDashboardClick={handleAccountDashboard} />
         <div style={{ marginTop: "1rem" }}>
           {/* Project Dashboard links will be handled by ClientProjectTree */}
         </div>
       </div>
       {activeTab === 'all-projects' ? (
         <AllProjectsSheet />
-      ) : (selectedFileUrl === 'project-dashboard' || selectedFileUrl?.includes('/project-dashboard/')) && selectedProject ? (
-        <ContentSection1 selectedFileUrl={selectedFileUrl} />
+      ) : selectedFileUrl === 'account-dashboard' && selectedClient ? (
+        <div style={{ flex: 1, minWidth: 0, height: '100%', overflowY: 'auto' }}>
+          <MonthlyHealthDashboard
+            clientName={selectedClient}
+            clientProjects={selectedClientProjects}
+            employeeData={employeeData}
+            projectStats={{}}
+          />
+        </div>
+      ) : selectedFileUrl === 'monthly-dashboard' && selectedProject ? (
+        <div style={{ flex: 1, minWidth: 0, height: '100%', overflowY: 'auto' }}>
+          <ProjectShowDashboard
+            projectName={selectedProject}
+            clientName={selectedClient}
+            projectStats={getProjectStats(selectedClient, selectedProject)}
+          />
+        </div>
       ) : selectedFileUrl === 'project-team' && selectedProject ? (
         <ProjectTeamSheetNew projectName={selectedProject} />
       ) : selectedFileUrl === 'project-plan' && selectedProject ? (

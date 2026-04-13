@@ -84,54 +84,75 @@ const setPublicPermissions = async (gapi, spreadsheetId) => {
   }
 };
 
-export const syncTeamConsolidatedSheet = async (gapi) => {
-  try {
-    const consolidatedSheetId = getTeamConsolidatedSheetId();
-    if (!consolidatedSheetId) return;
+export const syncTeamConsolidatedSheet = async () => {
+  const consolidatedSheetId = getTeamConsolidatedSheetId();
+  if (!consolidatedSheetId) throw new Error('Consolidated team sheet not found. Please open a project team first.');
 
-    const allSheets = getStoredProjectTeamSheets();
-    const allRows = [];
+  const gapi = window.gapi;
 
-    for (const [projectName, sheetData] of Object.entries(allSheets)) {
-      const spreadsheetId = sheetData.spreadsheetId || sheetData.sheetUrl?.split('/d/')[1]?.split('/')[0];
-      if (!spreadsheetId || spreadsheetId === 'null') {
-        console.warn(`Skipping ${projectName} - invalid spreadsheetId`);
-        continue;
-      }
-      try {
-        const res = await gapi.client.sheets.spreadsheets.values.get({
-          spreadsheetId,
-          range: `A2:K`
-        });
-        const rows = (res.result.values || []).filter(row => row.some(cell => cell && cell.toString().trim() !== ''));
-        allRows.push(...rows);
-      } catch (e) {
-        console.warn(`Skipping ${projectName} due to fetch error:`, e?.result?.error?.message || e);
-      }
-    }
-
-    if (allRows.length === 0) {
-      console.warn('No team data found across all project sheets');
-      return;
-    }
-
-    await gapi.client.sheets.spreadsheets.values.clear({
-      spreadsheetId: consolidatedSheetId,
-      range: 'A2:K'
-    });
-
-    await gapi.client.sheets.spreadsheets.values.update({
-      spreadsheetId: consolidatedSheetId,
-      range: 'A2',
-      valueInputOption: 'RAW',
-      resource: { values: allRows }
-    });
-
-    console.log('Team consolidated sheet synced successfully');
-  } catch (error) {
-    console.error('Error syncing team consolidated sheet:', error);
-    throw error;
+  if (!gapi?.client?.sheets) {
+    const { initializeGoogleAPI, initializeGIS } = await import('./googleSheetsService');
+    await Promise.all([initializeGoogleAPI(), initializeGIS()]);
   }
+
+  if (!gapi?.client?.sheets) throw new Error('Google Sheets API not loaded. Please refresh the page.');
+
+  if (!gapi.client.getToken()) {
+    const { authenticate } = await import('./googleSheetsService');
+    await authenticate();
+  }
+
+  const allSheets = getStoredProjectTeamSheets();
+  const errors = [];
+  const allRows = [];
+
+  for (const [projectName, sheetData] of Object.entries(allSheets)) {
+    const spreadsheetId = sheetData.spreadsheetId || sheetData.sheetUrl?.split('/d/')[1]?.split('/')[0];
+    if (!spreadsheetId || spreadsheetId === 'null') {
+      errors.push(`${projectName}: invalid spreadsheetId`);
+      continue;
+    }
+    try {
+      const res = await gapi.client.sheets.spreadsheets.values.get({ spreadsheetId, range: 'A2:L' });
+      const rows = (res.result.values || []).filter(row => row.some(cell => cell?.toString().trim()));
+      allRows.push(...rows);
+    } catch (e) {
+      const status = e?.result?.error?.code || e?.status;
+      if (status === 403) {
+        try {
+          await gapi.client.request({
+            path: `https://www.googleapis.com/drive/v3/files/${spreadsheetId}/permissions`,
+            method: 'POST',
+            body: { role: 'writer', type: 'anyone' }
+          });
+          const retry = await gapi.client.sheets.spreadsheets.values.get({ spreadsheetId, range: 'A2:L' });
+          const rows = (retry.result.values || []).filter(row => row.some(cell => cell?.toString().trim()));
+          allRows.push(...rows);
+        } catch (retryErr) {
+          errors.push(`${projectName}: ${retryErr?.result?.error?.message || String(retryErr)}`);
+        }
+      } else {
+        errors.push(`${projectName}: ${e?.result?.error?.message || String(e)}`);
+      }
+    }
+  }
+
+  if (errors.length > 0 && allRows.length === 0) {
+    throw new Error('Could not read any team sheets:\n' + errors.join('\n'));
+  }
+
+  if (allRows.length === 0) {
+    throw new Error('No data found in team sheets. Please add data to the project team sheet first.');
+  }
+
+  await gapi.client.sheets.spreadsheets.values.clear({ spreadsheetId: consolidatedSheetId, range: 'A2:L' });
+
+  await gapi.client.sheets.spreadsheets.values.update({
+    spreadsheetId: consolidatedSheetId,
+    range: 'A2',
+    valueInputOption: 'RAW',
+    resource: { values: allRows }
+  });
 };
 
 export const createProjectTeamSheet = async (projectName, gapi) => {

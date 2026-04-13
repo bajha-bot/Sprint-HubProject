@@ -57,7 +57,7 @@ const AllProjectsSheet = () => {
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', padding: '20px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', padding: '20px' }}>
         <div className="spinner-border text-primary" role="status" style={{ width: '3rem', height: '3rem' }}>
           <span className="visually-hidden">Loading...</span>
         </div>
@@ -84,7 +84,7 @@ const AllProjectsSheet = () => {
   }
 
   return (
-    <div style={{ width: '100%', height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px', backgroundColor: '#f8f9fa' }}>
+    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px', backgroundColor: '#f8f9fa' }}>
       <div style={{ maxWidth: '700px', textAlign: 'center', backgroundColor: 'white', padding: '40px', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
         <h2 style={{ marginBottom: '20px', color: '#2a89ac' }}>All Projects - Consolidated View</h2>
         <p style={{ fontSize: '1.1rem', marginBottom: '30px', color: '#666' }}>

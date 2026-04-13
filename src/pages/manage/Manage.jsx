@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-// import "./FolderSection.css";
 import { useDispatch, useSelector } from "react-redux";
 import {
   createFile,
@@ -8,7 +7,6 @@ import {
   renameFile,
   deleteFile,
 } from "../../features/createFolderFilesSlice";
-// import {openFileLink} from '../../features/openFileSlice'
 import FolderImg from "/folder.webp";
 import FolderOpenImg from "/open-folder.webp";
 import FileImg from "/file.webp";
@@ -19,13 +17,19 @@ import RenameImg from "/rename.webp";
 import AddUser from "/adduser.webp";
 import ManageClientProjectTree from "../../components/ManageClientProjectTree";
 import ClientProjectTree from "../../components/ClientProjectTree";
+import { useAuth } from "../../context/AuthContext";
+import { useNavigate } from "react-router-dom";
 
 function Manage() {
   const value = useSelector((state) => state.create.value);
   const navbarStatus = useSelector((state) => state.navbarChange.value);
   const dispatch = useDispatch();
-
+  const { user, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
   const [openFolders, setOpenFolders] = useState({});
+
+  if (authLoading) return <div style={{ padding: '2rem' }}>Loading...</div>;
+  if (!user) { navigate('/role-based-login'); return null; }
 
   const toggleFolder = (folderId) => {
     setOpenFolders((prev) => ({
@@ -169,7 +173,7 @@ function Manage() {
 }  
 
   return (
-    <div style={{ width: "100%" }}>
+    <div style={{ width: '100%', height: '100vh', overflowY: 'auto' }}>
       <div
         style={{
           display: "flex",
@@ -190,7 +194,7 @@ function Manage() {
           <img src={AddFileImg} alt="Add File" width="35" style={{ marginLeft: "8px" }} onClick={(e) => { e.stopPropagation(); dispatch(createFile(0)); }} />
         </div>
       </div>
-      <ManageClientProjectTree />
+      <ManageClientProjectTree user={user} />
       {/* <div style={{ marginLeft: "2rem" }}>{displayLoop(value)}</div> */}
     </div>
   );

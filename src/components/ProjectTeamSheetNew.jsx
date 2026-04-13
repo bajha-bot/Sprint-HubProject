@@ -8,7 +8,7 @@ import {
   syncTeamConsolidatedSheet
 } from '../utils/projectTeamSheetService';
 
-const ProjectTeamSheetNew = ({ projectName }) => {
+const ProjectTeamSheetNew = ({ projectName, readOnly = false }) => {
   const [sheetUrl, setSheetUrl] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -18,8 +18,8 @@ const ProjectTeamSheetNew = ({ projectName }) => {
   const handleSync = async () => {
     try {
       setSyncing(true);
-      await syncTeamConsolidatedSheet(window.gapi);
-      alert('Team consolidated sheet updated successfully!');
+      await syncTeamConsolidatedSheet();
+      alert('✅ Team consolidated sheet updated successfully!');
     } catch (err) {
       alert('Sync failed: ' + err.message);
     } finally {
@@ -36,6 +36,12 @@ const ProjectTeamSheetNew = ({ projectName }) => {
         const existingUrl = getProjectTeamSheetUrl(projectName);
         if (existingUrl) {
           setSheetUrl(existingUrl);
+          setLoading(false);
+          return;
+        }
+
+        // In readOnly mode, don't create a new sheet
+        if (readOnly) {
           setLoading(false);
           return;
         }
@@ -72,11 +78,11 @@ const ProjectTeamSheetNew = ({ projectName }) => {
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
         <div className="spinner-border text-primary" role="status" style={{ width: '3rem', height: '3rem' }}>
           <span className="visually-hidden">Loading...</span>
         </div>
-        <p style={{ marginTop: '20px', fontSize: '1.1rem' }}>Creating project team sheet for {projectName}...</p>
+        <p style={{ marginTop: '20px', fontSize: '1.1rem' }}>{readOnly ? 'Loading project team...' : `Creating project team sheet for ${projectName}...`}</p>
       </div>
     );
   }
@@ -100,48 +106,44 @@ const ProjectTeamSheetNew = ({ projectName }) => {
 
   const consolidatedUrl = getTeamConsolidatedSheetUrl();
 
+  if (readOnly && !sheetUrl) return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', padding: '40px', textAlign: 'center' }}>
+      <div style={{ fontSize: '48px', marginBottom: '16px' }}>👥</div>
+      <h4 style={{ color: '#1e3a5f', marginBottom: '8px' }}>{projectName} - Project Team</h4>
+      <p style={{ color: '#6b7280', fontSize: '14px' }}>No project team sheet found for this project.<br />Please open this project from the Analytics section to create one.</p>
+    </div>
+  );
+
   return (
     <div style={{ width: '100%', height: '100vh', display: 'flex', flexDirection: 'column' }}>
       <div style={{ padding: '15px', backgroundColor: '#f5f5f5', borderBottom: '1px solid #ddd', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h3 style={{ margin: 0 }}>{projectName} - Project Team</h3>
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <button
-            onClick={handleSync}
-            disabled={syncing}
-            style={{ padding: '8px 16px', backgroundColor: '#17a2b8', color: 'white', border: 'none', borderRadius: '4px', fontSize: '14px', cursor: syncing ? 'not-allowed' : 'pointer' }}
-          >
-            {syncing ? 'Syncing...' : 'Sync to Consolidated'}
-          </button>
-          {consolidatedUrl && (
-            <a
-              href={consolidatedUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ padding: '8px 16px', backgroundColor: '#28a745', color: 'white', textDecoration: 'none', borderRadius: '4px', fontSize: '14px' }}
-            >
-              View All Projects
+        {!readOnly && (
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button onClick={handleSync} disabled={syncing}
+              style={{ padding: '8px 16px', backgroundColor: '#17a2b8', color: 'white', border: 'none', borderRadius: '4px', fontSize: '14px', cursor: syncing ? 'not-allowed' : 'pointer' }}>
+              {syncing ? 'Syncing...' : 'Sync to Consolidated'}
+            </button>
+            {consolidatedUrl && (
+              <a href={consolidatedUrl} target="_blank" rel="noopener noreferrer"
+                style={{ padding: '8px 16px', backgroundColor: '#28a745', color: 'white', textDecoration: 'none', borderRadius: '4px', fontSize: '14px' }}>
+                View All Projects
+              </a>
+            )}
+            <a href={sheetUrl} target="_blank" rel="noopener noreferrer"
+              style={{ padding: '8px 16px', backgroundColor: '#2a89ac', color: 'white', textDecoration: 'none', borderRadius: '4px', fontSize: '14px' }}>
+              Open in New Tab
             </a>
-          )}
-          <a
-            href={sheetUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ padding: '8px 16px', backgroundColor: '#2a89ac', color: 'white', textDecoration: 'none', borderRadius: '4px', fontSize: '14px' }}
-          >
-            Open in New Tab
-          </a>
-        </div>
-      </div>
-      <div style={{ padding: '10px 15px', backgroundColor: '#d1ecf1', borderBottom: '1px solid #bee5eb', fontSize: '0.85rem', color: '#0c5460' }}>
-        <strong>Sheet ID:</strong> {sheetUrl?.split('/d/')[1]?.split('/')[0]} — Team sheet for {projectName}
+          </div>
+        )}
       </div>
       {sheetUrl && (
-        <iframe
-          key={sheetUrl}
-          src={sheetUrl}
-          style={{ width: '100%', height: '100%', border: 'none', flex: 1 }}
-          title={`${projectName} Project Team`}
-        />
+        <div style={{ position: 'relative', flex: 1, width: '100%', minHeight: 0, overflow: 'auto' }}>
+          <iframe key={sheetUrl} src={readOnly ? sheetUrl.replace('/edit', '/preview') : sheetUrl} style={{ width: '100%', height: '100%', minHeight: '600px', border: 'none', display: 'block' }} title={`${projectName} Project Team`} />
+          {readOnly && (
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 10, cursor: 'not-allowed', pointerEvents: 'none' }} />
+          )}
+        </div>
       )}
     </div>
   );

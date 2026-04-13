@@ -6,18 +6,18 @@ import { useSelector, useDispatch } from "react-redux";
 import { changeNavbarState } from "../../features/navbarSlice";
 
 function MainSideBar() {
- const location = useLocation()
-
-useEffect(()=>{
-if(location.pathname==='/browse') dispatch(changeNavbarState(3))
-if(location.pathname==='/browser') dispatch(changeNavbarState(7))
-if(location.pathname==='/notifications') dispatch(changeNavbarState(1))
-if(location.pathname==='/search') dispatch(changeNavbarState(2))
-if(location.pathname==='/ceipal-details') dispatch(changeNavbarState(5))
-if(location.pathname==='/sprint-hub-app') dispatch(changeNavbarState(6))
-},[])
- const dispatch = useDispatch();
+  const location = useLocation();
+  const dispatch = useDispatch();
   const value = useSelector((state) => state.navbarChange.value);
+
+  useEffect(() => {
+    if (location.pathname === '/browse') dispatch(changeNavbarState(3));
+    if (location.pathname === '/browser') dispatch(changeNavbarState(7));
+    if (location.pathname === '/notifications') dispatch(changeNavbarState(1));
+    if (location.pathname === '/search') dispatch(changeNavbarState(2));
+    if (location.pathname === '/ceipal-details') dispatch(changeNavbarState(5));
+    if (location.pathname === '/sprint-hub-app') dispatch(changeNavbarState(6));
+  }, [location.pathname]);
 
 //This line is just to check if the latest code is pushed or not
   return (
@@ -60,7 +60,7 @@ if(location.pathname==='/sprint-hub-app') dispatch(changeNavbarState(6))
           className={`sideBarItem ${value === 7 ? "active" : ""}`}
           onClick={() => dispatch(changeNavbarState(7))}
         >
-          <i className="bi bi-grid-3x3-gap sideIcons"></i>Browser
+          <i className="bi bi-grid-3x3-gap sideIcons"></i>Analytics
         </div>
       </Link>
       <Link to="/manage">

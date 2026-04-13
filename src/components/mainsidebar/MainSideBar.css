@@ -1,10 +1,17 @@
 
  
 .sideBar {
-  background: linear-gradient(to bottom,blue,#07c3ff);
+  background: linear-gradient(to bottom, blue, #07c3ff);
   width: 5rem;
-  height: 100vh; 
-  padding-top: 1rem; 
+  min-width: 5rem;
+  max-width: 5rem;
+  flex-shrink: 0;
+  flex-grow: 0;
+  height: 100vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-top: 1rem;
+  z-index: 100;
 }
 
 .sideBarItem{

@@ -9,8 +9,7 @@ export default defineConfig(({ mode }) => {
   server: {
     proxy: {
       '/myTeam': {
-        // target: 'https://qa-myteam.mynisum.com:8445',
-         target: env.VITE_API_BASE_URL,
+        target: env.VITE_API_BASE_URL,
         changeOrigin: true,
         secure: false,
         configure: (proxy, options) => {
@@ -20,6 +19,11 @@ export default defineConfig(({ mode }) => {
             }
           });
         }
+      },
+      '/api': {
+        target: env.VITE_SERVER_URL || 'http://localhost:5000',
+        changeOrigin: true,
+        secure: false,
       }
     }
   }

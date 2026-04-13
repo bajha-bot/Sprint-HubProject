@@ -73,57 +73,87 @@ export const storeConsolidatedSheet = (sheetUrl, spreadsheetId) => {
   localStorage.setItem(CONSOLIDATED_SHEET_KEY, JSON.stringify({ sheetUrl, spreadsheetId, createdAt: new Date().toISOString() }));
 };
 
-export const syncConsolidatedSheet = async (gapi) => {
-  try {
-    const consolidatedSheetId = getConsolidatedSheetId();
-    if (!consolidatedSheetId) return;
+export const syncConsolidatedSheet = async () => {
+  const consolidatedSheetId = getConsolidatedSheetId();
+  if (!consolidatedSheetId) throw new Error('Consolidated sheet not found. Please open "All Projects" first.');
 
-    const allSheets = getStoredProjectPlanSheets();
-    const allRows = [];
+  const gapi = window.gapi;
 
-    for (const [projectName, sheetData] of Object.entries(allSheets)) {
-      const spreadsheetId = sheetData.spreadsheetId || sheetData.sheetUrl?.split('/d/')[1]?.split('/')[0];
-      if (!spreadsheetId || spreadsheetId === 'null') {
-        console.warn(`Skipping ${projectName} - invalid spreadsheetId`);
-        continue;
-      }
-      try {
-        const res = await gapi.client.sheets.spreadsheets.values.get({
-          spreadsheetId,
-          range: 'A2:Q'
-        });
-        const rows = (res.result.values || []).filter(row => row.some(cell => cell && cell.toString().trim() !== ''));
-        console.log(`${projectName}: found ${rows.length} rows`);
-        allRows.push(...rows);
-      } catch (e) {
-        console.warn(`Skipping ${projectName} due to fetch error:`, e?.result?.error?.message || e);
-      }
-    }
-
-    console.log(`Total rows to write: ${allRows.length}`);
-
-    if (allRows.length === 0) {
-      console.warn('No data found across all project sheets');
-      return;
-    }
-
-    await gapi.client.sheets.spreadsheets.values.clear({
-      spreadsheetId: consolidatedSheetId,
-      range: 'A2:Q'
-    });
-
-    await gapi.client.sheets.spreadsheets.values.update({
-      spreadsheetId: consolidatedSheetId,
-      range: 'A2',
-      valueInputOption: 'RAW',
-      resource: { values: allRows }
-    });
-
-    console.log('Consolidated sheet synced successfully');
-  } catch (error) {
-    console.error('Error syncing consolidated sheet:', error);
-    throw error;
+  // Only initialize if gapi.client.sheets is not already loaded
+  if (!gapi?.client?.sheets) {
+    const { initializeGoogleAPI, initializeGIS } = await import('./googleSheetsService');
+    await Promise.all([initializeGoogleAPI(), initializeGIS()]);
   }
+
+  if (!gapi?.client?.sheets) throw new Error('Google Sheets API not loaded. Please refresh the page.');
+
+  // Only authenticate if there is no token — do NOT re-init which would wipe the token
+  if (!gapi.client.getToken()) {
+    const { authenticate } = await import('./googleSheetsService');
+    await authenticate();
+  }
+
+  const allSheets = getStoredProjectPlanSheets();
+  const errors = [];
+  const allRows = [];
+
+  for (const [projectName, sheetData] of Object.entries(allSheets)) {
+    const spreadsheetId = sheetData.spreadsheetId || sheetData.sheetUrl?.split('/d/')[1]?.split('/')[0];
+    if (!spreadsheetId || spreadsheetId === 'null') {
+      errors.push(`${projectName}: invalid spreadsheetId`);
+      continue;
+    }
+    try {
+      const res = await gapi.client.sheets.spreadsheets.values.get({
+        spreadsheetId,
+        range: 'A2:W'
+      });
+      const rows = (res.result.values || []).filter(row => row.some(cell => cell?.toString().trim()));
+      allRows.push(...rows);
+    } catch (e) {
+      const status = e?.result?.error?.code || e?.status;
+      if (status === 403) {
+        // Sheet missing public permission — fix it then retry
+        try {
+          await gapi.client.request({
+            path: `https://www.googleapis.com/drive/v3/files/${spreadsheetId}/permissions`,
+            method: 'POST',
+            body: { role: 'writer', type: 'anyone' }
+          });
+          const retry = await gapi.client.sheets.spreadsheets.values.get({
+            spreadsheetId,
+            range: 'A2:W'
+          });
+          const rows = (retry.result.values || []).filter(row => row.some(cell => cell?.toString().trim()));
+          allRows.push(...rows);
+        } catch (retryErr) {
+          errors.push(`${projectName}: ${retryErr?.result?.error?.message || String(retryErr)}`);
+        }
+      } else {
+        errors.push(`${projectName}: ${e?.result?.error?.message || String(e)}`);
+      }
+    }
+  }
+
+  if (errors.length > 0 && allRows.length === 0) {
+    throw new Error('Could not read any project sheets:\n' + errors.join('\n'));
+  }
+
+  if (allRows.length === 0) {
+    throw new Error('No data found in project sheets. Please add data to the project plan first.');
+  }
+
+  await gapi.client.sheets.spreadsheets.values.clear({
+    spreadsheetId: consolidatedSheetId,
+    range: 'A2:W'
+  });
+
+  await gapi.client.sheets.spreadsheets.values.update({
+    spreadsheetId: consolidatedSheetId,
+    range: 'A2',
+    valueInputOption: 'RAW',
+    resource: { values: allRows }
+  });
 };
 
 export const createProjectPlanSheet = async (projectName, gapi) => {
@@ -148,7 +178,7 @@ export const createProjectPlanSheet = async (projectName, gapi) => {
     const headers = [
       'Project Name', 'Sprint', 'Tasks Completed (Last Sprint task - Story Points)',
       'Story Points', 'Health', 'Emp status', 'Sprint Status', '%Complete','%Code Coverage',
-      'Duration', 'Start Date', 'End Date', 'Leaves Taken', 'Assigned to',
+      'Duration', 'Start Date', 'End Date', 'Leaves Taken', 'Employee Name','Project Manager','Project Owner','Project Sponsor','Achievemnets','Growth','Assigned to',
       'Tasks Assigned (Current Sprint)', 'Risks','Any Comments'
     ];
 
@@ -194,7 +224,7 @@ export const createProjectPlanSheet = async (projectName, gapi) => {
 
     const sheetUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`;
     storeProjectPlanSheet(projectName, sheetUrl, spreadsheetId);
-    await syncConsolidatedSheet(gapi);
+    await syncConsolidatedSheet();
 
     return { sheetUrl, spreadsheetId, isNew: true };
   } catch (error) {
@@ -216,11 +246,11 @@ export const createConsolidatedProjectSheet = async (projects, gapi) => {
 
     const spreadsheetId = createResponse.result.spreadsheetId;
 
-    const headers = [
+   const headers = [
       'Project Name', 'Sprint', 'Tasks Completed (Last Sprint task - Story Points)',
       'Story Points', 'Health', 'Emp status', 'Sprint Status', '%Complete','%Code Coverage',
-      'Duration', 'Start Date', 'End Date', 'Leaves Taken', 'Assigned to',
-      'Tasks Assigned (Current Sprint)','Risks', 'Any Comments'
+      'Duration', 'Start Date', 'End Date', 'Leaves Taken', 'Employee Name','Project Manager','Project Owner','Project Sponsor','Achievemnets','Growth','Assigned to',
+      'Tasks Assigned (Current Sprint)', 'Risks','Any Comments'
     ];
 
     const sheetData = [headers];

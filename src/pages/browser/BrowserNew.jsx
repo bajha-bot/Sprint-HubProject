@@ -21,7 +21,7 @@ function BrowserNew() {
 
   return (
     <div className="browseScreen">
-      <div style={{ background: "#ecfaff", width: "25rem", height: "100vh", paddingTop: "1rem", paddingLeft: "1rem", paddingRight: "1rem", borderRight: "1px solid #2a89ac", borderTop: "1px solid #2a89ac", overflowY: "scroll" }}>
+      <div style={{ background: "#ecfaff", width: "25rem", height: "100%", paddingTop: "1rem", paddingLeft: "1rem", paddingRight: "1rem", borderRight: "1px solid #2a89ac", borderTop: "1px solid #2a89ac", overflowY: "scroll" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
           <h5>Browser</h5>
           <button 

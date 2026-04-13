@@ -27,19 +27,20 @@ function App() {
     <AuthProvider>
       <div className="wholeScreen">
         <MainSideBar />
-
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/notifications" element={<Notifications />} />
-          <Route path="/search" element={<Search />} />
-          <Route path="/browse" element={<Browse />} />
-          <Route path="/browser" element={<Browser />} />
-          <Route path="/manage" element={<Manage />} />
-          <Route path="/EmployeeStatsCard" element={<EmployeeStatsCard />} />
-          <Route path="/ceipal-details" element={<CeipalDetails />} />
-          <Route path="/role-based-login" element={<RoleBasedLogin />} />
-          <Route path="/sprint-hub-app" element={<RoleBasedClientBrowser />} />
-        </Routes>
+        <div style={{ flex: 1, minWidth: 0, height: '100vh', overflow: 'hidden' }}>
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/notifications" element={<Notifications />} />
+            <Route path="/search" element={<Search />} />
+            <Route path="/browse" element={<Browse />} />
+            <Route path="/browser" element={<Browser />} />
+            <Route path="/manage" element={<Manage />} />
+            <Route path="/EmployeeStatsCard" element={<EmployeeStatsCard />} />
+            <Route path="/ceipal-details" element={<CeipalDetails />} />
+            <Route path="/role-based-login" element={<RoleBasedLogin />} />
+            <Route path="/sprint-hub-app" element={<RoleBasedClientBrowser />} />
+          </Routes>
+        </div>
       </div>
     </AuthProvider>
   );

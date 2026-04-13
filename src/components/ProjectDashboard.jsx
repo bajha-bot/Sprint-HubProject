@@ -19,7 +19,7 @@ const ProjectDashboard = ({ projectName }) => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const sheetUrl = getProjectPlanSheetUrl(projectName);
+        const sheetUrl = getProjectPlanSheetUrl(projectName);x
         
         if (!sheetUrl) {
           setLoading(false);
@@ -65,7 +65,7 @@ const ProjectDashboard = ({ projectName }) => {
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
         <div className="spinner-border text-primary" role="status">
           <span className="visually-hidden">Loading...</span>
         </div>
@@ -74,7 +74,7 @@ const ProjectDashboard = ({ projectName }) => {
   }
 
   return (
-    <div style={{ padding: '20px', backgroundColor: '#f8f9fa', minHeight: '100vh' }}>
+    <div style={{ padding: '20px', backgroundColor: '#f8f9fa', minHeight: '100%' }}>
       <h2 style={{ marginBottom: '30px', color: '#2a89ac' }}>{projectName} - Dashboard</h2>
       
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px', marginBottom: '30px' }}>

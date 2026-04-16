@@ -32,40 +32,20 @@ function Home() {
   const objValue = useSelector((state) => state.create.value);
   const { data: employeeData } = useGetAllEmployees();
   const { user, loading: authLoading } = useAuth();
-
-  if (authLoading) return <div style={{ padding: '2rem' }}>Loading...</div>;
-  if (!user) { navigate('/role-based-login'); return null; }
-
-  // Debug logging
-  // useEffect(() => {
-  //   console.log('Employee data:', employeeData);
-  //   if (employeeData?.records) {
-  //     console.log('Records count:', employeeData.records.length);
-  //     console.log('Sample record:', employeeData.records[0]);
-  //     console.log('Sample record keys:', Object.keys(employeeData.records[0]));
-  //     // Check if any record has allocation data
-  //     const recordWithAllocation = employeeData.records.find(emp => emp.employeeAllocationDataDTO);
-  //     console.log('Record with allocation:', recordWithAllocation);
-  //     if (recordWithAllocation?.employeeAllocationDataDTO) {
-  //       console.log('Allocation data keys:', Object.keys(recordWithAllocation.employeeAllocationDataDTO));
-  //       console.log('Full allocation data:', recordWithAllocation.employeeAllocationDataDTO);
-  //     }
-  //     console.log('Opened clients:', openedClients);
-  //   }
-  // }, [employeeData, openedClients]);
-
   const searchRef = useRef(null);
 
   useEffect(() => {
     function handleClickOutside(event) {
       if (searchRef.current && !searchRef.current.contains(event.target)) {
-        setSearchOutput([]); 
+        setSearchOutput([]);
       }
     }
-
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  if (authLoading) return <div style={{ padding: '2rem' }}>Loading...</div>;
+  if (!user) { navigate('/role-based-login'); return null; }
 
   function escapeRegex(str) {
     return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

@@ -40,7 +40,7 @@ function Browser() {
 
   const handleProjectPlanClick = (clientName, projectName) => {
     setSelectedProject(projectName);
-    setSelectedClient(null);
+    setSelectedClient(clientName);
     setActiveTab('browser');
     dispatch(openFileLink('project-plan'));
     dispatch(changeBreadcrumb(`${projectName} - Project Plan`));
@@ -127,7 +127,10 @@ function Browser() {
       ) : selectedFileUrl === 'project-team' && selectedProject ? (
         <ProjectTeamSheetNew projectName={selectedProject} />
       ) : selectedFileUrl === 'project-plan' && selectedProject ? (
-        <ProjectPlanSheetNew projectName={selectedProject} />
+        <ProjectPlanSheetNew
+          projectName={selectedProject}
+          clientName={selectedClient}
+        />
       ) : selectedFileUrl === 'sheet-setup' ? (
         <GoogleSheetSetupGuide />
       ) : (

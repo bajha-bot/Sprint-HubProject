@@ -309,7 +309,7 @@ const ManageClientProjectTree = ({ user }) => {
                                     }}
                                   >
                                     <img src={DeleteImg} width="22" />
-                                    <p>Delete12</p>
+                                    <p>Delete</p>
                                   </div>
                                 </div>
                               </div>

@@ -1,23 +1,44 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useDispatch } from 'react-redux';
 import { initializeGoogleAPI, initializeGIS, authenticate } from '../utils/googleSheetsService';
-import { createProjectPlanSheet, getProjectPlanSheetUrl, getConsolidatedSheetUrl, syncConsolidatedSheet } from '../utils/projectPlanSheetService';
+import { createProjectPlanSheet, getProjectPlanSheetUrl, getConsolidatedSheetUrl, syncConsolidatedSheet, createClientConsolidatedSheet, getClientConsolidatedSheetUrl, syncClientConsolidatedSheet } from '../utils/projectPlanSheetService';
 import { updateFileLinkByName } from '../features/createFolderFilesSlice';
+import useGetAllEmployees from '../hooks/useGetAllEmployees';
 
-const ProjectPlanSheetNew = ({ projectName, readOnly = false }) => {
+const ProjectPlanSheetNew = ({ projectName, clientName, readOnly = false }) => {
   const [sheetUrl, setSheetUrl] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isNew, setIsNew] = useState(false);
 
   const dispatch = useDispatch();
+  const { data: employeeData } = useGetAllEmployees();
   const [syncing, setSyncing] = useState(false);
   const [lastSynced, setLastSynced] = useState(null);
+  const [clientSyncing, setClientSyncing] = useState(false);
+
+  // Derive all projects for this client from employee data
+  const clientProjects = clientName && employeeData?.records
+    ? [...new Set(employeeData.records
+        .filter(emp => emp.employeeAllocationDataDTO?.parentAccount?.accountName === clientName)
+        .map(emp => emp.employeeAllocationDataDTO?.project?.projectName)
+        .filter(Boolean))]
+    : [];
+
+  // keep a ref so auto-sync interval always has latest values
+  const syncStateRef = useRef({ clientName, clientProjects });
+  useEffect(() => {
+    syncStateRef.current = { clientName, clientProjects };
+  }, [clientName, clientProjects]);
 
   const handleSync = async () => {
     try {
       setSyncing(true);
       await syncConsolidatedSheet();
+      const { clientName: cn, clientProjects: cp } = syncStateRef.current;
+      if (cn && cp.length > 0 && getClientConsolidatedSheetUrl(cn)) {
+        await syncClientConsolidatedSheet(cn, cp);
+      }
       setLastSynced(new Date());
     } catch (err) {
       alert('Sync failed: ' + err.message);
@@ -26,19 +47,47 @@ const ProjectPlanSheetNew = ({ projectName, readOnly = false }) => {
     }
   };
 
-  // Auto-sync every 2 minutes and on window focus (after editing in Google Sheets tab)
+  const handleClientSheet = async () => {
+    if (!clientName || clientProjects.length === 0) {
+      alert('No client or projects available.');
+      return;
+    }
+    try {
+      setClientSyncing(true);
+      if (!window.gapi || !window.google) throw new Error('Google APIs not loaded.');
+      const { initializeGoogleAPI, initializeGIS, authenticate } = await import('../utils/googleSheetsService');
+      await Promise.all([initializeGoogleAPI(), initializeGIS()]);
+      if (window.gapi.client.getToken() === null) await authenticate();
+
+      const existing = getClientConsolidatedSheetUrl(clientName);
+      if (existing) {
+        // just open — no sync on button click
+        window.open(existing, '_blank');
+      } else {
+        // first time — create and sync once
+        const result = await createClientConsolidatedSheet(clientName, clientProjects, window.gapi);
+        window.open(result.sheetUrl, '_blank');
+      }
+    } catch (err) {
+      alert('Client sheet failed: ' + err.message);
+    } finally {
+      setClientSyncing(false);
+    }
+  };
+
+  const handleSyncRef = useRef(handleSync);
+  useEffect(() => { handleSyncRef.current = handleSync; }, [syncing, clientProjects]);
+
+  // Auto-sync every 2 minutes and on window focus
   useEffect(() => {
     if (!sheetUrl) return;
-
     const interval = setInterval(() => {
-      if (window.gapi?.client?.getToken()) handleSync();
+      if (window.gapi?.client?.getToken()) handleSyncRef.current();
     }, 2 * 60 * 1000);
-
     const onFocus = () => {
-      if (window.gapi?.client?.getToken()) handleSync();
+      if (window.gapi?.client?.getToken()) handleSyncRef.current();
     };
     window.addEventListener('focus', onFocus);
-
     return () => {
       clearInterval(interval);
       window.removeEventListener('focus', onFocus);
@@ -160,6 +209,15 @@ const ProjectPlanSheetNew = ({ projectName, readOnly = false }) => {
                 style={{ padding: '8px 16px', backgroundColor: '#28a745', color: 'white', textDecoration: 'none', borderRadius: '4px', fontSize: '14px' }}>
                 View All Projects
               </a>
+            )}
+            {clientName && (
+              <button
+                onClick={handleClientSheet}
+                disabled={clientSyncing}
+                style={{ padding: '8px 16px', backgroundColor: clientSyncing ? '#ccc' : '#6f42c1', color: 'white', border: 'none', borderRadius: '4px', fontSize: '14px', cursor: clientSyncing ? 'not-allowed' : 'pointer' }}
+              >
+                {clientSyncing ? 'Creating...' : `📊 ${clientName} - All Projects`}
+              </button>
             )}
             <a href={sheetUrl} target="_blank" rel="noopener noreferrer"
               style={{ padding: '8px 16px', backgroundColor: '#2a89ac', color: 'white', textDecoration: 'none', borderRadius: '4px', fontSize: '14px' }}>

@@ -33,7 +33,7 @@ function App() {
             <Route path="/notifications" element={<Notifications />} />
             <Route path="/search" element={<Search />} />
             <Route path="/browse" element={<Browse />} />
-            <Route path="/browser" element={<Browser />} />
+            <Route path="/analytics" element={<Browser />} />
             <Route path="/manage" element={<Manage />} />
             <Route path="/EmployeeStatsCard" element={<EmployeeStatsCard />} />
             <Route path="/ceipal-details" element={<CeipalDetails />} />

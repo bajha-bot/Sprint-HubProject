@@ -19,72 +19,41 @@ function MainSideBar() {
     if (location.pathname === '/sprint-hub-app') dispatch(changeNavbarState(6));
   }, [location.pathname]);
 
-//This line is just to check if the latest code is pushed or not
   return (
     <div className="sideBar">
       <Link to="/">
-        <div
-          className={`sideBarItem ${value === 0 ? "active" : ""}`}
-          onClick={() => dispatch(changeNavbarState(0))}
-        >
-          <i className="bi bi-house sideIcons"></i>Home
+        <div className={`sideBarItem ${value === 0 ? "active" : ""}`} onClick={() => dispatch(changeNavbarState(0))}>
+          <i className="bi bi-house sideIcons"></i><span className="sideBarLabel">Home</span>
         </div>
       </Link>
-      {/* <Link to="/notifications">
-        
-        <div
-          className={`sideBarItem ${value === 1 ? "active" : ""}`}
-          onClick={() => dispatch(changeNavbarState(1))}
-        >
-          <i className="bi bi-bell sideIcons"></i>Notifications
-        </div>
-      </Link> */}
       <Link to="/search">
-        <div
-          className={`sideBarItem ${value === 2 ? "active" : ""}`}
-          onClick={() => dispatch(changeNavbarState(2))}
-        >
-          <i className="bi bi-search sideIcons"></i>Search
+        <div className={`sideBarItem ${value === 2 ? "active" : ""}`} onClick={() => dispatch(changeNavbarState(2))}>
+          <i className="bi bi-search sideIcons"></i><span className="sideBarLabel">Search</span>
         </div>
       </Link>
       <Link to="/browse">
-        <div
-          className={`sideBarItem ${value === 3 ? "active" : ""}`}
-          onClick={() => dispatch(changeNavbarState(3))}
-        >
-          <i className="bi bi-folder sideIcons"></i>Browse
+        <div className={`sideBarItem ${value === 3 ? "active" : ""}`} onClick={() => dispatch(changeNavbarState(3))}>
+          <i className="bi bi-folder sideIcons"></i><span className="sideBarLabel">Browse</span>
         </div>
       </Link>
-      <Link to="/browser">
-        <div
-          className={`sideBarItem ${value === 7 ? "active" : ""}`}
-          onClick={() => dispatch(changeNavbarState(7))}
-        >
-          <i className="bi bi-grid-3x3-gap sideIcons"></i>Analytics
+      <Link to="/analytics">
+        <div className={`sideBarItem ${value === 7 ? "active" : ""}`} onClick={() => dispatch(changeNavbarState(7))}>
+          <i className="bi bi-grid-3x3-gap sideIcons"></i><span className="sideBarLabel">Analytics</span>
         </div>
       </Link>
-      <Link to="/manage">
-        <div
-          className={`sideBarItem ${value === 4 ? "active" : ""}`}
-          onClick={() => dispatch(changeNavbarState(4))}
-        >
-          <i className="bi bi-gear sideIcons"></i>Manage
+      {/* <Link to="/manage">
+        <div className={`sideBarItem ${value === 4 ? "active" : ""}`} onClick={() => dispatch(changeNavbarState(4))}>
+          <i className="bi bi-gear sideIcons"></i><span className="sideBarLabel">Manage</span>
         </div>
-      </Link>
-      <Link to="/ceipal-details">
-        <div
-          className={`sideBarItem ${value === 5 ? "active" : ""}`}
-          onClick={() => dispatch(changeNavbarState(5))}
-        >
-          <i className="bi bi-file-earmark-excel sideIcons"></i>CEIPAL Details
+      </Link> */}
+      {/* <Link to="/ceipal-details">
+        <div className={`sideBarItem ${value === 5 ? "active" : ""}`} onClick={() => dispatch(changeNavbarState(5))}>
+          <i className="bi bi-file-earmark-excel sideIcons"></i><span className="sideBarLabel">CEIPAL Details</span>
         </div>
-      </Link>
+      </Link> */}
       <Link to="/sprint-hub-app">
-        <div
-          className={`sideBarItem ${value === 6 ? "active" : ""}`}
-          onClick={() => dispatch(changeNavbarState(6))}
-        >
-          <i className="bi bi-shield-lock sideIcons"></i>My Teams
+        <div className={`sideBarItem ${value === 6 ? "active" : ""}`} onClick={() => dispatch(changeNavbarState(6))}>
+          <i className="bi bi-shield-lock sideIcons"></i><span className="sideBarLabel">My Teams</span>
         </div>
       </Link>
     </div>

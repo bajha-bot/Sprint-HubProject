@@ -7,6 +7,7 @@ import {
   renameFile,
   deleteFile,
 } from "../../features/createFolderFilesSlice";
+import { addClient, addProject } from "../../features/clientProjectTreeSlice";
 import FolderImg from "/folder.webp";
 import FolderOpenImg from "/open-folder.webp";
 import FileImg from "/file.webp";
@@ -27,6 +28,20 @@ function Manage() {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [openFolders, setOpenFolders] = useState({});
+
+  const admin = user?.role === 'Admin' || user?.designation?.toLowerCase().includes('admin');
+
+  const handleAddClient = () => {
+    const clientName = prompt('Enter new client name:');
+    if (clientName?.trim()) dispatch(addClient(clientName.trim()));
+  };
+
+  const handleAddProject = () => {
+    const clientName = prompt('Enter client name to add project under:');
+    if (!clientName?.trim()) return;
+    const projectName = prompt(`Enter new project name for "${clientName.trim()}":`);
+    if (projectName?.trim()) dispatch(addProject({ clientName: clientName.trim(), projectName: projectName.trim() }));
+  };
 
   if (authLoading) return <div style={{ padding: '2rem' }}>Loading...</div>;
   if (!user) { navigate('/role-based-login'); return null; }
@@ -189,9 +204,13 @@ function Manage() {
           <h5>Manage</h5>
           <p>Click on the file to update its Link:</p>
         </div>
-        <div>
-          <img src={AddFolderImg} alt="Add Folder" width="35" onClick={(e) => { e.stopPropagation(); dispatch(createFolder(0)); }} />
-          <img src={AddFileImg} alt="Add File" width="35" style={{ marginLeft: "8px" }} onClick={(e) => { e.stopPropagation(); dispatch(createFile(0)); }} />
+        <div style={{ display: 'flex', gap: '8px' }}>
+          {admin && (
+            <>
+              <img src={AddFolderImg} alt="Add Client" width="35" title="Add new client" style={{ cursor: 'pointer' }} onClick={handleAddClient} />
+              <img src={AddFileImg} alt="Add Project" width="35" title="Add new project" style={{ cursor: 'pointer' }} onClick={handleAddProject} />
+            </>
+          )}
         </div>
       </div>
       <ManageClientProjectTree user={user} />

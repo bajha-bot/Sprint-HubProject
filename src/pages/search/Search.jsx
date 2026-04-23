@@ -12,6 +12,7 @@ function Search() {
   const [searched, setSearched] = useState(false);
   const navigate = useNavigate();
   const objValue = useSelector((state) => state.create.value);
+  const { customProjects, customFiles, deletedProjects } = useSelector((state) => state.clientProjectTree);
   const { data: employeeData } = useGetAllEmployees();
 
   function escapeRegex(str) {
@@ -51,6 +52,23 @@ function Search() {
         emp.employeeAllocationDataDTO?.project?.projectName).filter(Boolean))];
       projects.forEach(name => { if (regex.test(name)) found.push({ name, type: 'project' }); });
     }
+
+    // Search custom clients and projects from manage section
+    Object.entries(customProjects).forEach(([clientName, projects]) => {
+      if (regex.test(clientName)) found.push({ name: clientName, type: 'client' });
+      projects.forEach(projectName => {
+        if (!deletedProjects.some(d => d.toLowerCase() === projectName.toLowerCase())) {
+          if (regex.test(projectName)) found.push({ name: projectName, type: 'project' });
+        }
+      });
+    });
+
+    // Search custom files
+    Object.entries(customFiles).forEach(([projectName, files]) => {
+      files.forEach(fileName => {
+        if (regex.test(fileName)) found.push({ name: fileName, type: 'file', url: localStorage.getItem(`sprintHub_${projectName}_${fileName}`) || null });
+      });
+    });
 
     // Deduplicate
     const seen = new Set();

@@ -136,6 +136,9 @@ function Browse() {
             projectName={selectedProject}
             clientName={selectedClient}
             projectStats={getProjectStats(selectedClient, selectedProject)}
+            onProjectPlan={() => handleProjectPlanClick(selectedClient, selectedProject)}
+            onProjectTeam={() => handleProjectTeamClick(selectedClient, selectedProject)}
+            onAccountDashboard={() => handleAccountDashboard(selectedClient, [])}
           />
         </div>
       ) : selectedFileUrl === 'project-plan' && selectedProject ? (

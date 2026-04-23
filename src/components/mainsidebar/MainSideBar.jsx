@@ -41,11 +41,11 @@ function MainSideBar() {
           <i className="bi bi-grid-3x3-gap sideIcons"></i><span className="sideBarLabel">Analytics</span>
         </div>
       </Link>
-      {/* <Link to="/manage">
+      <Link to="/manage">
         <div className={`sideBarItem ${value === 4 ? "active" : ""}`} onClick={() => dispatch(changeNavbarState(4))}>
           <i className="bi bi-gear sideIcons"></i><span className="sideBarLabel">Manage</span>
         </div>
-      </Link> */}
+      </Link>
       {/* <Link to="/ceipal-details">
         <div className={`sideBarItem ${value === 5 ? "active" : ""}`} onClick={() => dispatch(changeNavbarState(5))}>
           <i className="bi bi-file-earmark-excel sideIcons"></i><span className="sideBarLabel">CEIPAL Details</span>

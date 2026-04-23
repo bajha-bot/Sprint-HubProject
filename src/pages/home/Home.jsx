@@ -30,6 +30,7 @@ function Home() {
   const [searchFilter, setSearchFilter] = useState({ client: null, project: null });
   const [selectedView, setSelectedView] = useState(null);
   const objValue = useSelector((state) => state.create.value);
+  const { customProjects, customFiles, deletedProjects } = useSelector((state) => state.clientProjectTree);
   const { data: employeeData } = useGetAllEmployees();
   const { user, loading: authLoading } = useAuth();
   const searchRef = useRef(null);
@@ -91,6 +92,23 @@ function searchByName(searchText) {
       if (regex.test(projectName)) results.push({ name: projectName, type: 'project' });
     });
   }
+
+  // Search custom clients and projects from manage section
+  Object.entries(customProjects).forEach(([clientName, projects]) => {
+    if (regex.test(clientName)) results.push({ name: clientName, type: 'client' });
+    projects.forEach(projectName => {
+      if (!deletedProjects.some(d => d.toLowerCase() === projectName.toLowerCase())) {
+        if (regex.test(projectName)) results.push({ name: projectName, type: 'project' });
+      }
+    });
+  });
+
+  // Search custom files
+  Object.entries(customFiles).forEach(([projectName, files]) => {
+    files.forEach(fileName => {
+      if (regex.test(fileName)) results.push({ name: fileName, type: 'file', url: localStorage.getItem(`sprintHub_${projectName}_${fileName}`) || null });
+    });
+  });
 
   // Deduplicate by name
   const seen = new Set();
@@ -287,7 +305,11 @@ function searchByName(searchText) {
               <MonthlyHealthDashboard clientName={selectedView.clientName} clientProjects={selectedView.clientProjects} employeeData={employeeData} projectStats={{}} />
             )}
             {selectedView.type === 'project-dashboard' && (
-              <ProjectShowDashboard projectName={selectedView.projectName} clientName={selectedView.clientName} projectStats={getProjectStats(selectedView.clientName, selectedView.projectName)} />
+              <ProjectShowDashboard projectName={selectedView.projectName} clientName={selectedView.clientName} projectStats={getProjectStats(selectedView.clientName, selectedView.projectName)}
+                onProjectPlan={() => setSelectedView({ type: 'project-plan', projectName: selectedView.projectName, clientName: selectedView.clientName })}
+                onProjectTeam={() => setSelectedView({ type: 'project-team', projectName: selectedView.projectName, clientName: selectedView.clientName })}
+                onAccountDashboard={() => setSelectedView({ type: 'account-dashboard', clientName: selectedView.clientName, clientProjects: [] })}
+              />
             )}
             {selectedView.type === 'project-plan' && (
               <ProjectPlanSheetNew projectName={selectedView.projectName} readOnly={true} />

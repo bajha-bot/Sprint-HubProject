@@ -34,6 +34,7 @@ const buildUser = (record) => ({
   name: record.employeeName,
   email: record.emailId,
   role: record.role,
+  designation: record.designation,
   accountId: record.employeeAllocationDataDTO?.parentAccount?.accountId,
   accountName: record.employeeAllocationDataDTO?.parentAccount?.accountName,
   projectId: record.employeeAllocationDataDTO?.project?.projectId,

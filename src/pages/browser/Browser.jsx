@@ -122,6 +122,9 @@ function Browser() {
             projectName={selectedProject}
             clientName={selectedClient}
             projectStats={getProjectStats(selectedClient, selectedProject)}
+            onProjectPlan={() => { dispatch(openFileLink('project-plan')); dispatch(changeBreadcrumb(`${selectedProject} - Project Plan`)); }}
+            onProjectTeam={() => { dispatch(openFileLink('project-team')); dispatch(changeBreadcrumb(`${selectedProject} - Project Team`)); }}
+            onAccountDashboard={() => handleAccountDashboard(selectedClient, [])}
           />
         </div>
       ) : selectedFileUrl === 'project-team' && selectedProject ? (

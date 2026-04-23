@@ -1,10 +1,11 @@
 import React from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { toggleClient, toggleProject } from '../features/clientProjectTreeSlice';
-import { renameFile, deleteFile, createFolder, createFile } from '../features/createFolderFilesSlice';
-import { openFileLink } from '../features/openFileSlice';
-import { changeBreadcrumb } from '../features/breadcrumbSlice';
-import { getProjectPlanSheetUrl, storeProjectPlanSheet } from '../utils/projectPlanSheetService';
+import {
+  toggleClient, toggleProject, addProject, addFile,
+  renameClient, deleteClient, renameProject, deleteProject,
+  renameFile, deleteFile,
+} from '../features/clientProjectTreeSlice';
+import { storeProjectPlanSheet } from '../utils/projectPlanSheetService';
 import { updateFileLinkByName } from '../features/createFolderFilesSlice';
 import { canAccessClient, canAccessProject } from '../utils/roleBasedAccess';
 import useGetAllEmployees from '../hooks/useGetAllEmployees';
@@ -17,50 +18,31 @@ import DeleteImg from '/deleteImg.webp';
 import RenameImg from '/rename.webp';
 import AddUser from '/adduser.webp';
 
+const DEFAULT_FILES = ['Project Team', 'Project Plan', 'Project Dashboard'];
+const isAdmin = (user) => user?.role === 'Admin' || user?.designation?.toLowerCase().includes('admin');
+
 const ManageClientProjectTree = ({ user }) => {
   const dispatch = useDispatch();
   const { data: employeeData } = useGetAllEmployees();
-  const { openedClients, openedProjects } = useSelector(state => state.clientProjectTree);
+  const { openedClients, openedProjects, customProjects, customFiles, deletedProjects, deletedClients } = useSelector(state => state.clientProjectTree);
+  const admin = isAdmin(user);
 
-  const handleClientToggle = (clientName) => {
-    dispatch(toggleClient(clientName));
-  };
-
-  const handleProjectToggle = (projectName) => {
-    dispatch(toggleProject(projectName));
-  };
-
-  const getLegacyUrl = (projectName, manageKey) => {
-    const legacyKeyMap = {
-      'Project Team12': 'sprintHub_projectTeam_sheets',
-      'Project Plan13': 'sprintHub_projectPlan_sheets',
-      'Project Dashboard14': 'sprintHub_projectDashboard_sheets',
-    };
-    const legacyKey = legacyKeyMap[manageKey];
-    if (!legacyKey) return null;
-    try {
-      const data = JSON.parse(localStorage.getItem(legacyKey));
-      return data?.[projectName]?.sheetUrl || null;
-    } catch { return null; }
-  };
-
-  const handleProjectPlanClick = (projectName, fileName) => {
+  const handleFileClick = (projectName, fileName) => {
     const storageKey = `sprintHub_${projectName}_${fileName}`;
-    const storedUrl = localStorage.getItem(storageKey)
-      || getLegacyUrl(projectName, fileName)
-      || (fileName === 'Project Plan13' ? getProjectPlanSheetUrl(projectName) : null);
-    const currentUrl = storedUrl || 'Not set';
-    const newUrl = prompt(
-      `Your current ${fileName} URL is:\n\n${currentUrl}\n\nEnter the New Link below and press OK to Update:`
-    );
+    const currentUrl = localStorage.getItem(storageKey) || 'Not set';
+    const newUrl = prompt(`Current URL for ${fileName}:\n\n${currentUrl}\n\nEnter new URL:`);
     if (newUrl) {
       localStorage.setItem(storageKey, newUrl);
-      if (fileName === 'Project Plan13') {
+      if (fileName === 'Project Plan') {
         storeProjectPlanSheet(projectName, newUrl, null);
         dispatch(updateFileLinkByName({ projectName, url: newUrl }));
       }
     }
   };
+
+  const ROW_STYLE = { display: 'flex', alignItems: 'center', marginBottom: '4px', width: '95%' };
+  const FOLDER_STYLE = { display: 'flex', flex: 1, alignItems: 'center', cursor: 'pointer', border: '1px solid #0583ff', borderRadius: '5px', padding: '2px 8px' };
+  const ACTIONS_STYLE = { display: 'flex', alignItems: 'center', marginLeft: '8px', gap: '6px', flexShrink: 0 };
 
   if (!employeeData?.records) return null;
 
@@ -68,258 +50,181 @@ const ManageClientProjectTree = ({ user }) => {
     emp.employeeAllocationDataDTO?.parentAccount?.accountName || emp.employeeLocation || 'Unassigned'
   ))].sort();
 
-  const visibleClients = user
-    ? allClients.filter(c => canAccessClient(user, c))
-    : allClients;
+  const mergedClients = [...new Set([...allClients, ...Object.keys(customProjects)])]
+    .filter(c => !deletedClients.includes(c)).sort();
+
+  const visibleClients = admin ? mergedClients : (user ? mergedClients.filter(c => canAccessClient(user, c)) : mergedClients);
 
   return (
-    <div style={{ marginLeft: "2rem" }}>
+    <div style={{ marginLeft: '2rem' }}>
       {visibleClients.map(clientName => {
         const clientEmployees = employeeData.records.filter(emp =>
           (emp.employeeAllocationDataDTO?.parentAccount?.accountName || emp.employeeLocation || 'Unassigned') === clientName
         );
-        const allProjects = [...new Set(clientEmployees
+        const apiProjects = [...new Set(clientEmployees
           .map(emp => emp.employeeAllocationDataDTO?.project?.projectName)
-          .filter(p => p && p.trim() !== '')
+          .filter(p => p?.trim())
         )];
-        const clientProjects = user
-          ? allProjects.filter(p => canAccessProject(user, clientName, p))
-          : allProjects;
-        
+        const allProjects = [...new Set([...apiProjects, ...(customProjects[clientName] || [])])]
+          .filter(p => !deletedProjects.some(d => d.toLowerCase() === p.toLowerCase())).sort();
+        const clientProjects = admin ? allProjects : (user ? allProjects.filter(p => canAccessProject(user, clientName, p)) : allProjects);
+        const isCustomClient = customProjects[clientName] !== undefined;
+
         return (
           <div key={clientName} style={{ marginBottom: '4px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', marginBottom: '4px' }}>
+
+            {/* Client row */}
+            <div style={ROW_STYLE}>
+
+              {/* Folder toggle area */}
               <div
-                style={{ display: 'flex', width: '80%', alignItems: 'center', cursor: 'pointer', border: '1px solid #0583ff', borderRadius: '5px', padding: '2px 8px' }}
-                onClick={() => handleClientToggle(clientName)}
+                style={FOLDER_STYLE}
+                onClick={() => dispatch(toggleClient(clientName))}
               >
-                <div>
-                  <i
-                    className={`bi ${
-                      openedClients.includes(clientName)
-                        ? "bi-chevron-down"
-                        : "bi-chevron-right"
-                    }`}
-                    style={{ fontSize: "12px", marginRight: "5px" }}
-                  ></i>
-                  <img
-                    src={openedClients.includes(clientName) ? FolderOpenImg : FolderImg}
-                    alt="Folder"
-                    width="17"
-                    className="folderIcon"
+                <i className={`bi ${openedClients.includes(clientName) ? 'bi-chevron-down' : 'bi-chevron-right'}`} style={{ fontSize: '12px', marginRight: '5px' }} />
+                <img src={openedClients.includes(clientName) ? FolderOpenImg : FolderImg} alt="Folder" width="17" />
+                <p style={{ margin: '0 0 0 5px', fontSize: '13px', fontWeight: 'bold' }}>{clientName}</p>
+              </div>
+
+              {/* Action buttons OUTSIDE the clickable div */}
+              <div style={ACTIONS_STYLE}>
+                <img src={AddUser} width="18" style={{ cursor: 'pointer' }} title="Add User" />
+                {admin && isCustomClient && (
+                  <>
+                    <img src={RenameImg} width="18" style={{ cursor: 'pointer' }} title="Rename"
+                      onClick={() => {
+                        const newName = prompt(`Rename client "${clientName}" to:`, clientName);
+                        if (newName?.trim() && newName.trim() !== clientName)
+                          dispatch(renameClient({ oldName: clientName, newName: newName.trim() }));
+                      }}
+                    />
+                    <img src={DeleteImg} width="20" style={{ cursor: 'pointer' }} title="Delete"
+                      onClick={() => {
+                        if (window.confirm(`Delete client "${clientName}"?`))
+                          dispatch(deleteClient(clientName));
+                      }}
+                    />
+                  </>
+                )}
+                {admin && (
+                  <img src={AddFolderImg} width="18" title="Add Project" style={{ cursor: 'pointer' }}
+                    onClick={() => {
+                      const projectName = prompt(`New project name for "${clientName}":`);
+                      if (projectName?.trim()) dispatch(addProject({ clientName, projectName: projectName.trim() }));
+                    }}
                   />
-                </div>
-                <p style={{ margin: 0, paddingLeft: '5px', fontSize: '13px', fontWeight: 'bold' }}>{clientName}</p>
-
-                <div style={{ marginLeft: "auto", display: "flex" }}>
-                  <div
-                    style={{ display: "flex" }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      // Add user functionality for client
-                    }}
-                  >
-                    <img src={AddUser} width="20" />
-                    <p style={{ margin: 0, marginLeft: 5, fontSize: '12px' }}>Add User</p>
-                  </div>
-
-                  <div
-                    style={{ display: "flex", marginLeft: "1rem" }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      // Rename functionality for client
-                    }}
-                  >
-                    <img src={RenameImg} width="20" />
-                    <p style={{ marginLeft: 5 }}>Rename</p>
-                  </div>
-
-                  <div
-                    style={{ display: "flex", marginLeft: "1rem" }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      // Delete functionality for client
-                    }}
-                  >
-                    <img src={DeleteImg} width="22" />
-                    <p>Delete</p>
-                  </div>
-                </div>
+                )}
               </div>
-              
-              <div>
-                <img
-                  src={AddFolderImg}
-                  width="20"
-                  style={{ marginLeft: "8px" }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    dispatch(createFolder(0));
-                  }}
-                />
-    
-                <img
-                  src={AddFileImg}
-                  width="19"
-                  style={{ marginLeft: "8px" }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    dispatch(createFile(0));
-                  }}
-                />
-              </div>
-              
             </div>
 
-            {/* Render projects */}
-            {openedClients.includes(clientName) && clientProjects.length > 0 && (
+            {/* Projects */}
+            {openedClients.includes(clientName) && (
               <div style={{ marginLeft: '20px' }}>
-                {clientProjects.map(projectName => (
-                  <div key={projectName} style={{ marginBottom: '4px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', marginBottom: '4px' }}>
-                      <div
-                        style={{ display: 'flex', width: '80%', alignItems: 'center', cursor: 'pointer', border: '1px solid #0583ff', borderRadius: '5px', padding: '2px 8px' }}
-                        onClick={() => handleProjectToggle(projectName)}
-                      >
-                        <div>
-                          <i
-                            className={`bi ${
-                              openedProjects.includes(projectName)
-                                ? "bi-chevron-down"
-                                : "bi-chevron-right"
-                            }`}
-                            style={{ fontSize: "12px", marginRight: "5px" }}
-                          ></i>
-                          <img
-                            src={openedProjects.includes(projectName) ? FolderOpenImg : FolderImg}
-                            alt="Folder"
-                            width="17"
-                            className="folderIcon"
-                          />
+                {clientProjects.length === 0 && (
+                  <p style={{ fontSize: '12px', color: '#888', margin: '4px 0' }}>No projects yet. Click 📁 to add one.</p>
+                )}
+                {clientProjects.map(projectName => {
+                  const isCustomProject = Object.values(customProjects).some(arr =>
+                    arr.some(p => p.toLowerCase() === projectName.toLowerCase())
+                  );
+                  const extraFiles = customFiles[projectName] || [];
+                  const allFiles = [...DEFAULT_FILES, ...extraFiles];
+
+                  return (
+                    <div key={projectName} style={{ marginBottom: '4px' }}>
+
+                      {/* Project row */}
+                      <div style={ROW_STYLE}>
+
+                        {/* Folder toggle area */}
+                        <div
+                          style={FOLDER_STYLE}
+                          onClick={() => dispatch(toggleProject(projectName))}
+                        >
+                          <i className={`bi ${openedProjects.includes(projectName) ? 'bi-chevron-down' : 'bi-chevron-right'}`} style={{ fontSize: '12px', marginRight: '5px' }} />
+                          <img src={openedProjects.includes(projectName) ? FolderOpenImg : FolderImg} alt="Folder" width="17" />
+                          <p style={{ margin: '0 0 0 5px', fontSize: '13px', fontWeight: 'bold' }}>{projectName}</p>
                         </div>
-                        <p style={{ margin: 0, paddingLeft: '5px', fontSize: '13px', fontWeight: 'bold' }}>{projectName}</p>
 
-                        <div style={{ marginLeft: "auto", display: "flex" }}>
-                          <div
-                            style={{ display: "flex" }}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              // Add user functionality for project
-                            }}
-                          >
-                            <img src={AddUser} width="20" />
-                            <p style={{ marginLeft: 5 }}>Add User</p>
-                          </div>
-
-                          <div
-                            style={{ display: "flex", marginLeft: "1rem" }}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              // Rename functionality for project
-                            }}
-                          >
-                            <img src={RenameImg} width="20" />
-                            <p style={{ marginLeft: 5 }}>Rename</p>
-                          </div>
-
-                          <div
-                            style={{ display: "flex", marginLeft: "1rem" }}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              // Delete functionality for project
-                            }}
-                          >
-                            <img src={DeleteImg} width="22" />
-                            <p>Delete</p>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div>
-                        <img
-                          src={AddFolderImg}
-                          width="20"
-                          style={{ marginLeft: "8px" }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            dispatch(createFolder(0));
-                          }}
-                        />
-            
-                        <img
-                          src={AddFileImg}
-                          width="19"
-                          style={{ marginLeft: "8px" }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            dispatch(createFile(0));
-                            
-                          }}
-                        />
-                      </div>
-
-
-                    </div>
-
-                    {openedProjects.includes(projectName) && (
-                      <div style={{ marginLeft: '20px' }}>
-                        {['Project Team12', 'Project Plan13', 'Project Dashboard14'].map(fileName => (
-                          <div key={fileName} style={{ marginBottom: '4px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start' }}>
-                              <div
-                                style={{ display: 'flex', width: '80%', alignItems: 'center', cursor: 'pointer', border: '1px solid #0583ff', borderRadius: '5px', padding: '2px 8px' }}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleProjectPlanClick(projectName, fileName);
+                        {/* Action buttons OUTSIDE the clickable div */}
+                        <div style={ACTIONS_STYLE}>
+                          <img src={AddUser} width="18" style={{ cursor: 'pointer' }} title="Add User" />
+                          {admin && isCustomProject && (
+                            <>
+                              <img src={RenameImg} width="18" style={{ cursor: 'pointer' }} title="Rename"
+                                onClick={() => {
+                                  const newName = prompt(`Rename project "${projectName}" to:`, projectName);
+                                  if (newName?.trim() && newName.trim() !== projectName)
+                                    dispatch(renameProject({ oldName: projectName, newName: newName.trim() }));
                                 }}
-                              >
-                                <img src={FileImg} alt="File" width="17" />
-                                <p style={{ margin: 0, paddingLeft: '5px', fontSize: '13px' }}>
-                                  {fileName === 'Project Team12' ? 'Project Team' : fileName === 'Project Plan13' ? 'Project Plan' : 'Project Dashboard'}
-                                </p>
+                              />
+                              <img src={DeleteImg} width="20" style={{ cursor: 'pointer' }} title="Delete"
+                                onClick={() => {
+                                  if (window.confirm(`Delete project "${projectName}"?`))
+                                    dispatch(deleteProject({ projectName }));
+                                }}
+                              />
+                            </>
+                          )}
+                          {admin && (
+                            <img src={AddFileImg} width="18" title="Add File" style={{ cursor: 'pointer' }}
+                              onClick={() => {
+                                const fileName = prompt(`New file name for "${projectName}":`);
+                                if (fileName?.trim()) dispatch(addFile({ projectName, fileName: fileName.trim() }));
+                              }}
+                            />
+                          )}
+                        </div>
+                      </div>
 
-                                <div style={{ marginLeft: "auto", display: "flex" }}>
+                      {/* Files */}
+                      {openedProjects.includes(projectName) && (
+                        <div style={{ marginLeft: '20px' }}>
+                          {allFiles.map(fileName => {
+                            const isCustomFile = extraFiles.includes(fileName);
+                            return (
+                              <div key={fileName} style={{ marginBottom: '4px' }}>
+                                <div style={ROW_STYLE}>
+
+                                  {/* File click area */}
                                   <div
-                                    style={{ display: "flex" }}
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      // Add user functionality for file
-                                    }}
+                                    style={FOLDER_STYLE}
+                                    onClick={() => handleFileClick(projectName, fileName)}
                                   >
-                                    <img src={AddUser} width="20" />
-                                    <p style={{ marginLeft: 5 }}>Add User</p>
+                                    <img src={FileImg} alt="File" width="17" />
+                                    <p style={{ margin: '0 0 0 5px', fontSize: '13px' }}>{fileName}</p>
                                   </div>
 
-                                  <div
-                                    style={{ display: "flex", marginLeft: "1rem" }}
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      // Rename functionality for file
-                                    }}
-                                  >
-                                    <img src={RenameImg} width="20" />
-                                    <p style={{ marginLeft: 5 }}>Rename</p>
-                                  </div>
-
-                                  <div
-                                    style={{ display: "flex", marginLeft: "1rem" }}
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      // Delete functionality for file
-                                    }}
-                                  >
-                                    <img src={DeleteImg} width="22" />
-                                    <p>Delete</p>
+                                  {/* File action buttons OUTSIDE */}
+                                  <div style={ACTIONS_STYLE}>
+                                    <img src={AddUser} width="18" style={{ cursor: 'pointer' }} title="Add User" />
+                                    {admin && isCustomFile && (
+                                      <>
+                                        <img src={RenameImg} width="18" style={{ cursor: 'pointer' }} title="Rename"
+                                          onClick={() => {
+                                            const newName = prompt(`Rename file "${fileName}" to:`, fileName);
+                                            if (newName?.trim() && newName.trim() !== fileName)
+                                              dispatch(renameFile({ projectName, oldName: fileName, newName: newName.trim() }));
+                                          }}
+                                        />
+                                        <img src={DeleteImg} width="20" style={{ cursor: 'pointer' }} title="Delete"
+                                          onClick={() => {
+                                            if (window.confirm(`Delete file "${fileName}"?`))
+                                              dispatch(deleteFile({ projectName, fileName }));
+                                          }}
+                                        />
+                                      </>
+                                    )}
                                   </div>
                                 </div>
                               </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))}
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>

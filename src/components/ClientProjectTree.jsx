@@ -14,7 +14,7 @@ const ClientProjectTree = ({ onProjectTeamClick, onProjectPlanClick, onProjectDa
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { data: employeeData } = useGetAllEmployees();
-  const { openedClients, openedProjects } = useSelector(state => state.clientProjectTree);
+  const { openedClients, openedProjects, customProjects, customFiles, deletedProjects, deletedClients } = useSelector(state => state.clientProjectTree);
   const [openedProjectFolders, setOpenedProjectFolders] = useState({});
 
   const toggleProjectFolder = (clientName) => {
@@ -64,9 +64,12 @@ const ClientProjectTree = ({ onProjectTeamClick, onProjectPlanClick, onProjectDa
 
   if (!employeeData?.records) return null;
 
-  const allClients = [...new Set(employeeData.records.map(emp =>
+  const apiClients = [...new Set(employeeData.records.map(emp =>
     emp.employeeAllocationDataDTO?.parentAccount?.accountName || emp.employeeLocation || 'Unassigned'
   ))].sort();
+
+  const allClients = [...new Set([...apiClients, ...Object.keys(customProjects)])]
+    .filter(c => !deletedClients.includes(c)).sort();
 
   const visibleClients = user
     ? allClients.filter(clientName => canAccessClient(user, clientName))
@@ -90,10 +93,12 @@ const ClientProjectTree = ({ onProjectTeamClick, onProjectPlanClick, onProjectDa
         const clientEmployees = employeeData.records.filter(emp =>
           (emp.employeeAllocationDataDTO?.parentAccount?.accountName || emp.employeeLocation || 'Unassigned') === clientName
         );
-        const allProjects = [...new Set(clientEmployees
+        const apiProjects = [...new Set(clientEmployees
           .map(emp => emp.employeeAllocationDataDTO?.project?.projectName)
           .filter(project => project && project.trim() !== '')
         )];
+        const allProjects = [...new Set([...apiProjects, ...(customProjects[clientName] || [])])]
+          .filter(p => !deletedProjects.some(d => d.toLowerCase() === p.toLowerCase()));
         const clientProjects = user
           ? allProjects.filter(projectName => canAccessProject(user, clientName, projectName))
           : allProjects;
@@ -152,27 +157,21 @@ const ClientProjectTree = ({ onProjectTeamClick, onProjectPlanClick, onProjectDa
                           </div>
                           {openedProjects.includes(projectName) && (
                             <div style={{ marginLeft: '1.5rem' }}>
-                              <div
-                                style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', marginBottom: '0.2rem' }}
-                                onClick={() => onProjectTeamClick?.(clientName, projectName)}
-                              >
-                                <img src={fileImg} height={16} />
-                                <span style={{ marginLeft: '8px', fontSize: '0.8rem' }}>Project Team</span>
-                              </div>
-                              <div
-                                style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', marginBottom: '0.2rem' }}
-                                onClick={() => onProjectPlanClick?.(clientName, projectName)}
-                              >
-                                <img src={fileImg} height={16} />
-                                <span style={{ marginLeft: '8px', fontSize: '0.8rem' }}>Project Plan</span>
-                              </div>
-                              <div
-                                style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', marginBottom: '0.2rem' }}
-                                onClick={() => onProjectDashboardClick ? onProjectDashboardClick(clientName, projectName) : handleFileClick(clientName, projectName, 'Project Dashboard', 'Project Dashboard14')}
-                              >
-                                <img src={fileImg} height={16} />
-                                <span style={{ marginLeft: '8px', fontSize: '0.8rem' }}>Project Dashboard</span>
-                              </div>
+                              {['Project Team', 'Project Plan', 'Project Dashboard', ...(customFiles[projectName] || [])].map(fileName => (
+                                <div
+                                  key={fileName}
+                                  style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', marginBottom: '0.2rem' }}
+                                  onClick={() => {
+                                    if (fileName === 'Project Team') onProjectTeamClick?.(clientName, projectName);
+                                    else if (fileName === 'Project Plan') onProjectPlanClick?.(clientName, projectName);
+                                    else if (fileName === 'Project Dashboard') onProjectDashboardClick ? onProjectDashboardClick(clientName, projectName) : handleFileClick(clientName, projectName, fileName, 'Project Dashboard14');
+                                    else handleFileClick(clientName, projectName, fileName, fileName);
+                                  }}
+                                >
+                                  <img src={fileImg} height={16} />
+                                  <span style={{ marginLeft: '8px', fontSize: '0.8rem' }}>{fileName}</span>
+                                </div>
+                              ))}
                             </div>
                           )}
                         </div>

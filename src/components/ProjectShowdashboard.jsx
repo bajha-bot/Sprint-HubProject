@@ -376,7 +376,7 @@ function ProgressRing({ pct }) {
 
 
 
-export default function ProjectShowDashboard({ projectName }) {
+export default function ProjectShowDashboard({ projectName, clientName, projectStats, onProjectPlan, onProjectTeam, onAccountDashboard }) {
   const [health, setHealth] = useState('red');
   const [completePct, setCompletePct] = useState(0);
   const [projectOwner, setProjectOwner] = useState('-');
@@ -602,7 +602,12 @@ export default function ProjectShowDashboard({ projectName }) {
                   Quick Links
                 </div>
                 {quickLinks.map((link, i) => (
-                  <a key={i} className="quick-link-item" href="#" onClick={(e) => e.preventDefault()}>
+                  <a key={i} className="quick-link-item" href="#" onClick={(e) => {
+                    e.preventDefault();
+                    if (link.label === 'Project Plan') onProjectPlan?.();
+                    else if (link.label === 'Project Team') onProjectTeam?.();
+                    else if (link.label === 'Portfolio Summary Roll-up') onAccountDashboard?.();
+                  }}>
                     <i className={`${link.icon}`} style={{ color: link.color }} />
                     {link.label}
                     <i className="bi bi-chevron-right ms-auto" style={{ fontSize: "0.65rem", opacity: 0.4 }} />

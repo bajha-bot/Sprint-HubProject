@@ -388,7 +388,7 @@ export default function ProjectShowDashboard({ projectName, clientName, projectS
   useEffect(() => {
     const fetchHealth = async () => {
       try {
-        const sheetUrl = getProjectPlanSheetUrl(projectName);
+        const sheetUrl = await getProjectPlanSheetUrl(projectName);
         if (!sheetUrl) return;
         const spreadsheetId = sheetUrl.split('/d/')[1]?.split('/')[0];
         let values = null;

@@ -4,9 +4,33 @@ const API_KEY = 'AIzaSyAXU_abdTN3N-6Nv78KbQjht0QKl1xd9Eo';
 const DISCOVERY_DOC = 'https://sheets.googleapis.com/$discovery/rest?version=v4';
 const SCOPES = 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive';
 
-// Static spreadsheet ID for all employees data
 const STATIC_SHEET_ID_KEY = 'sprintHub_allEmployees_sheetId';
 const STATIC_CEIPAL_SHEET_ID_KEY = 'sprintHub_ceipal_sheetId';
+
+const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:5000';
+
+const getSheetIdFromServer = async (key) => {
+  try {
+    const res = await fetch(`${SERVER_URL}/api/sheet-ids`);
+    const data = await res.json();
+    return data[key] || localStorage.getItem(key) || null;
+  } catch (e) {
+    return localStorage.getItem(key);
+  }
+};
+
+const saveSheetIdToServer = async (key, value) => {
+  try {
+    await fetch(`${SERVER_URL}/api/sheet-ids`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ [key]: value })
+    });
+    localStorage.setItem(key, value);
+  } catch (e) {
+    localStorage.setItem(key, value);
+  }
+};
 
 let gapi, gisInited = false, gapiInited = false;
 let gapiResolve, gisResolve;
@@ -274,7 +298,7 @@ export const createOrUpdateCeipalSheet = async (data) => {
       await authenticate();
     }
 
-    let spreadsheetId = localStorage.getItem(STATIC_CEIPAL_SHEET_ID_KEY);
+    let spreadsheetId = await getSheetIdFromServer(STATIC_CEIPAL_SHEET_ID_KEY);
     let isNewSheet = false;
 
     if (!spreadsheetId) {
@@ -283,7 +307,7 @@ export const createOrUpdateCeipalSheet = async (data) => {
       });
 
       spreadsheetId = createResponse.result.spreadsheetId;
-      localStorage.setItem(STATIC_CEIPAL_SHEET_ID_KEY, spreadsheetId);
+      await saveSheetIdToServer(STATIC_CEIPAL_SHEET_ID_KEY, spreadsheetId);
       isNewSheet = true;
       console.log('Created new CEIPAL spreadsheet:', spreadsheetId);
 
@@ -565,7 +589,7 @@ export const createOrUpdateAllEmployeesSheet = async (data) => {
     }
 
     // Check if we have an existing sheet ID
-    let spreadsheetId = localStorage.getItem(STATIC_SHEET_ID_KEY);
+    let spreadsheetId = await getSheetIdFromServer(STATIC_SHEET_ID_KEY);
     let isNewSheet = false;
 
     if (!spreadsheetId) {
@@ -577,7 +601,7 @@ export const createOrUpdateAllEmployeesSheet = async (data) => {
       });
 
       spreadsheetId = createResponse.result.spreadsheetId;
-      localStorage.setItem(STATIC_SHEET_ID_KEY, spreadsheetId);
+      await saveSheetIdToServer(STATIC_SHEET_ID_KEY, spreadsheetId);
       isNewSheet = true;
       console.log('Created new spreadsheet:', spreadsheetId);
 

@@ -14,6 +14,8 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'AppToken']
 }));
 
+app.use(express.json());
+
 app.use("/api", myRoute);
 
 module.exports = app;

@@ -45,11 +45,11 @@ function Browse() {
     } catch { return null; }
   };
 
-  const handleFileClick = (projectName, fileName, manageKey) => {
+  const handleFileClick = async (projectName, fileName, manageKey) => {
     const storageKey = `sprintHub_${projectName}_${manageKey}`;
-    const storedUrl = localStorage.getItem(storageKey)
-      || getLegacyUrl(projectName, manageKey)
-      || (manageKey === 'Project Plan13' ? getProjectPlanSheetUrl(projectName) : null);
+    const legacyUrl = getLegacyUrl(projectName, manageKey);
+    const planUrl = manageKey === 'Project Plan13' ? await getProjectPlanSheetUrl(projectName) : null;
+    const storedUrl = localStorage.getItem(storageKey) || legacyUrl || planUrl;
     if (storedUrl) {
       dispatch(openFileLink(storedUrl));
       dispatch(changeBreadcrumb(`${projectName} - ${fileName}`));

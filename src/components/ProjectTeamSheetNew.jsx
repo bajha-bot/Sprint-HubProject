@@ -33,7 +33,7 @@ const ProjectTeamSheetNew = ({ projectName, readOnly = false }) => {
         setLoading(true);
         setError(null);
 
-        const existingUrl = getProjectTeamSheetUrl(projectName);
+        const existingUrl = await getProjectTeamSheetUrl(projectName);
         if (existingUrl) {
           setSheetUrl(existingUrl);
           setLoading(false);
@@ -104,7 +104,11 @@ const ProjectTeamSheetNew = ({ projectName, readOnly = false }) => {
     );
   }
 
-  const consolidatedUrl = getTeamConsolidatedSheetUrl();
+  const [consolidatedUrl, setConsolidatedUrl] = useState(null);
+
+  useEffect(() => {
+    getTeamConsolidatedSheetUrl().then(setConsolidatedUrl);
+  }, [sheetUrl]);
 
   if (readOnly && !sheetUrl) return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', padding: '40px', textAlign: 'center' }}>

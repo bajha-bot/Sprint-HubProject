@@ -1,3 +1,39 @@
+const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:5000';
+
+const serverGet = async (key) => {
+  try {
+    const res = await fetch(`${SERVER_URL}/api/sheet-ids`);
+    const data = await res.json();
+    const serverValue = data[key];
+    const localValue = localStorage.getItem(key);
+    const result = serverValue ?? localValue ?? null;
+    // mirror server value back to localStorage if missing
+    if (serverValue && !localValue) {
+      localStorage.setItem(key, serverValue);
+    }
+    return result;
+  } catch (e) {
+    console.warn('[serverGet] fetch failed, using localStorage for key:', key);
+    return localStorage.getItem(key);
+  }
+};
+
+const serverSet = async (key, value) => {
+  try {
+    const res = await fetch(`${SERVER_URL}/api/sheet-ids`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ [key]: value })
+    });
+    const result = await res.json();
+    console.log('[serverSet] key:', key, 'response:', result);
+    localStorage.setItem(key, value);
+  } catch (e) {
+    console.warn('[serverSet] fetch failed, saving to localStorage only:', e.message);
+    localStorage.setItem(key, value);
+  }
+};
+
 export const getNextProjectPosition = () => {
   const POSITION_KEY = 'sprintHub_next_position';
   const stored = localStorage.getItem(POSITION_KEY);
@@ -42,35 +78,45 @@ export const getOrAssignProjectRowPosition = (projectName) => {
 const PROJECT_PLAN_SHEETS_KEY = 'sprintHub_projectPlan_sheets';
 const CONSOLIDATED_SHEET_KEY = 'sprintHub_consolidated_sheet';
 
-export const getStoredProjectPlanSheets = () => {
-  const stored = localStorage.getItem(PROJECT_PLAN_SHEETS_KEY);
+export const getStoredProjectPlanSheets = async () => {
+  const stored = await serverGet(PROJECT_PLAN_SHEETS_KEY);
   return stored ? JSON.parse(stored) : {};
 };
 
-export const storeProjectPlanSheet = (projectName, sheetUrl, spreadsheetId) => {
-  const sheets = getStoredProjectPlanSheets();
+export const storeProjectPlanSheet = async (projectName, sheetUrl, spreadsheetId) => {
+  const sheets = await getStoredProjectPlanSheets();
   const resolvedId = spreadsheetId || sheetUrl?.split('/d/')[1]?.split('/')[0] || null;
   sheets[projectName] = { sheetUrl, spreadsheetId: resolvedId, createdAt: new Date().toISOString() };
-  localStorage.setItem(PROJECT_PLAN_SHEETS_KEY, JSON.stringify(sheets));
+  const value = JSON.stringify(sheets);
+  // save to localStorage immediately as primary
+  localStorage.setItem(PROJECT_PLAN_SHEETS_KEY, value);
+  // then save to server
+  await serverSet(PROJECT_PLAN_SHEETS_KEY, value);
+  console.log('[storeProjectPlanSheet] saved:', projectName, resolvedId);
 };
 
-export const getProjectPlanSheetUrl = (projectName) => {
-  const sheets = getStoredProjectPlanSheets();
+export const getProjectPlanSheetUrl = async (projectName) => {
+  const sheets = await getStoredProjectPlanSheets();
   return sheets[projectName]?.sheetUrl || null;
 };
 
-export const getConsolidatedSheetUrl = () => {
-  const stored = localStorage.getItem(CONSOLIDATED_SHEET_KEY);
+export const getConsolidatedSheetUrl = async () => {
+  const stored = await serverGet(CONSOLIDATED_SHEET_KEY);
   return stored ? JSON.parse(stored).sheetUrl : null;
 };
 
-export const getConsolidatedSheetId = () => {
-  const stored = localStorage.getItem(CONSOLIDATED_SHEET_KEY);
+export const getConsolidatedSheetId = async () => {
+  const stored = await serverGet(CONSOLIDATED_SHEET_KEY);
+  console.log('[getConsolidatedSheetId] raw stored value:', stored);
   return stored ? JSON.parse(stored).spreadsheetId : null;
 };
 
-export const storeConsolidatedSheet = (sheetUrl, spreadsheetId) => {
-  localStorage.setItem(CONSOLIDATED_SHEET_KEY, JSON.stringify({ sheetUrl, spreadsheetId, createdAt: new Date().toISOString() }));
+export const storeConsolidatedSheet = async (sheetUrl, spreadsheetId) => {
+  console.log('[storeConsolidatedSheet] saving:', spreadsheetId, sheetUrl);
+  const value = JSON.stringify({ sheetUrl, spreadsheetId, createdAt: new Date().toISOString() });
+  localStorage.setItem(CONSOLIDATED_SHEET_KEY, value);
+  await serverSet(CONSOLIDATED_SHEET_KEY, value);
+  console.log('[storeConsolidatedSheet] saved successfully');
 };
 
 const sleep = (ms) => new Promise(res => setTimeout(res, ms));
@@ -92,12 +138,16 @@ const fetchSheetWithRetry = async (gapi, spreadsheetId, range, retries = 3) => {
 };
 
 export const syncConsolidatedSheet = async () => {
-  const consolidatedSheetId = getConsolidatedSheetId();
-  if (!consolidatedSheetId) throw new Error('Consolidated sheet not found. Please open "All Projects" first.');
+  console.log('[syncConsolidatedSheet] called');
+  const consolidatedSheetId = await getConsolidatedSheetId();
+  console.log('[syncConsolidatedSheet] consolidatedSheetId:', consolidatedSheetId);
+  if (!consolidatedSheetId) {
+    console.warn('[syncConsolidatedSheet] No consolidated sheet ID found - returning early');
+    return;
+  }
 
   const gapi = window.gapi;
 
-  // Only initialize if gapi.client.sheets is not already loaded
   if (!gapi?.client?.sheets) {
     const { initializeGoogleAPI, initializeGIS } = await import('./googleSheetsService');
     await Promise.all([initializeGoogleAPI(), initializeGIS()]);
@@ -105,28 +155,32 @@ export const syncConsolidatedSheet = async () => {
 
   if (!gapi?.client?.sheets) throw new Error('Google Sheets API not loaded. Please refresh the page.');
 
-  // Only authenticate if there is no token — do NOT re-init which would wipe the token
   if (!gapi.client.getToken()) {
     const { authenticate } = await import('./googleSheetsService');
     await authenticate();
   }
 
-  const allSheets = getStoredProjectPlanSheets();
-  const errors = [];
+  const allSheets = await getStoredProjectPlanSheets();
+  console.log('[Sync] allSheets from server:', JSON.stringify(allSheets));
+  console.log('[Sync] consolidatedSheetId:', consolidatedSheetId);
+
   const allRows = [];
 
   for (const [projectName, sheetData] of Object.entries(allSheets)) {
     const spreadsheetId = sheetData.spreadsheetId || sheetData.sheetUrl?.split('/d/')[1]?.split('/')[0];
+    console.log(`[Sync] Reading project: ${projectName}, spreadsheetId: ${spreadsheetId}`);
     if (!spreadsheetId || spreadsheetId === 'null') {
-      errors.push(`${projectName}: invalid spreadsheetId`);
+      console.warn(`[Sync] Skipping ${projectName}: invalid spreadsheetId`);
       continue;
     }
     try {
       const values = await fetchSheetWithRetry(gapi, spreadsheetId, 'A2:W');
       const rows = values.filter(row => row.some(cell => cell?.toString().trim()));
+      console.log(`[Sync] ${projectName}: found ${rows.length} rows`);
       allRows.push(...rows);
     } catch (e) {
       const status = e?.result?.error?.code || e?.status;
+      console.error(`[Sync] Error reading ${projectName}:`, status, e?.result?.error?.message);
       if (status === 403) {
         try {
           await gapi.client.request({
@@ -136,23 +190,21 @@ export const syncConsolidatedSheet = async () => {
           });
           const values = await fetchSheetWithRetry(gapi, spreadsheetId, 'A2:W');
           const rows = values.filter(row => row.some(cell => cell?.toString().trim()));
+          console.log(`[Sync] ${projectName} after permission fix: found ${rows.length} rows`);
           allRows.push(...rows);
         } catch (retryErr) {
-          errors.push(`${projectName}: ${retryErr?.result?.error?.message || String(retryErr)}`);
+          console.error(`[Sync] Retry failed for ${projectName}:`, retryErr);
         }
-      } else {
-        errors.push(`${projectName}: ${e?.result?.error?.message || String(e)}`);
       }
     }
-    await sleep(300); // small delay between each sheet read
+    await sleep(300);
   }
 
-  if (errors.length > 0 && allRows.length === 0) {
-    throw new Error('Could not read any project sheets:\n' + errors.join('\n'));
-  }
+  console.log('[Sync] Total rows to write:', allRows.length);
 
   if (allRows.length === 0) {
-    throw new Error('No data found in project sheets. Please add data to the project plan first.');
+    console.warn('[Sync] No rows found across all project sheets — skipping write');
+    return;
   }
 
   await gapi.client.sheets.spreadsheets.values.clear({
@@ -166,16 +218,18 @@ export const syncConsolidatedSheet = async () => {
     valueInputOption: 'RAW',
     resource: { values: allRows }
   });
+  console.log('[Sync] Successfully wrote', allRows.length, 'rows to consolidated sheet');
 };
 
 export const createProjectPlanSheet = async (projectName, gapi) => {
   try {
-    const consolidatedSheetId = getConsolidatedSheetId();
+    let consolidatedSheetId = await getConsolidatedSheetId();
     if (!consolidatedSheetId) {
-      throw new Error('Please create the consolidated sheet first by clicking "All Projects" button');
+      const result = await createConsolidatedProjectSheet([], gapi);
+      consolidatedSheetId = result.spreadsheetId;
     }
 
-    const existingUrl = getProjectPlanSheetUrl(projectName);
+    const existingUrl = await getProjectPlanSheetUrl(projectName);
     if (existingUrl) {
       console.log('Existing URL for', projectName, ':', existingUrl);
       return { sheetUrl: existingUrl, isNew: false };
@@ -235,7 +289,9 @@ export const createProjectPlanSheet = async (projectName, gapi) => {
     }
 
     const sheetUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`;
-    storeProjectPlanSheet(projectName, sheetUrl, spreadsheetId);
+    console.log('[createProjectPlanSheet] storing sheet:', projectName, spreadsheetId);
+    await storeProjectPlanSheet(projectName, sheetUrl, spreadsheetId);
+    console.log('[createProjectPlanSheet] stored successfully, now syncing...');
     await syncConsolidatedSheet();
 
     return { sheetUrl, spreadsheetId, isNew: true };
@@ -247,27 +303,27 @@ export const createProjectPlanSheet = async (projectName, gapi) => {
 
 const CLIENT_CONSOLIDATED_KEY = 'sprintHub_client_consolidated_sheets';
 
-export const getClientConsolidatedSheetUrl = (clientName) => {
-  const stored = localStorage.getItem(CLIENT_CONSOLIDATED_KEY);
+export const getClientConsolidatedSheetUrl = async (clientName) => {
+  const stored = await serverGet(CLIENT_CONSOLIDATED_KEY);
   const all = stored ? JSON.parse(stored) : {};
   return all[clientName]?.sheetUrl || null;
 };
 
-export const getClientConsolidatedSheetId = (clientName) => {
-  const stored = localStorage.getItem(CLIENT_CONSOLIDATED_KEY);
+export const getClientConsolidatedSheetId = async (clientName) => {
+  const stored = await serverGet(CLIENT_CONSOLIDATED_KEY);
   const all = stored ? JSON.parse(stored) : {};
   return all[clientName]?.spreadsheetId || null;
 };
 
-const storeClientConsolidatedSheet = (clientName, sheetUrl, spreadsheetId) => {
-  const stored = localStorage.getItem(CLIENT_CONSOLIDATED_KEY);
+const storeClientConsolidatedSheet = async (clientName, sheetUrl, spreadsheetId) => {
+  const stored = await serverGet(CLIENT_CONSOLIDATED_KEY);
   const all = stored ? JSON.parse(stored) : {};
   all[clientName] = { sheetUrl, spreadsheetId, createdAt: new Date().toISOString() };
-  localStorage.setItem(CLIENT_CONSOLIDATED_KEY, JSON.stringify(all));
+  await serverSet(CLIENT_CONSOLIDATED_KEY, JSON.stringify(all));
 };
 
 export const syncClientConsolidatedSheet = async (clientName, clientProjects) => {
-  const consolidatedSheetId = getClientConsolidatedSheetId(clientName);
+  const consolidatedSheetId = await getClientConsolidatedSheetId(clientName);
   if (!consolidatedSheetId) throw new Error(`Client sheet not found. Please create it first.`);
 
   const gapi = window.gapi;
@@ -280,7 +336,7 @@ export const syncClientConsolidatedSheet = async (clientName, clientProjects) =>
     await authenticate();
   }
 
-  const allSheets = getStoredProjectPlanSheets();
+  const allSheets = await getStoredProjectPlanSheets();
   const allRows = [];
   const errors = [];
 
@@ -310,7 +366,7 @@ export const syncClientConsolidatedSheet = async (clientName, clientProjects) =>
 };
 
 export const createClientConsolidatedSheet = async (clientName, clientProjects, gapi) => {
-  const existingUrl = getClientConsolidatedSheetUrl(clientName);
+  const existingUrl = await getClientConsolidatedSheetUrl(clientName);
   if (existingUrl) return { sheetUrl: existingUrl, isNew: false };
 
   const headers = [
@@ -365,7 +421,7 @@ export const createClientConsolidatedSheet = async (clientName, clientProjects, 
   } catch (e) { console.warn('Permission error:', e); }
 
   const sheetUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`;
-  storeClientConsolidatedSheet(clientName, sheetUrl, spreadsheetId);
+  await storeClientConsolidatedSheet(clientName, sheetUrl, spreadsheetId);
   await syncClientConsolidatedSheet(clientName, clientProjects);
 
   return { sheetUrl, spreadsheetId, isNew: true };
@@ -373,8 +429,11 @@ export const createClientConsolidatedSheet = async (clientName, clientProjects, 
 
 export const createConsolidatedProjectSheet = async (projects, gapi) => {
   try {
-    const existingUrl = getConsolidatedSheetUrl();
+    const existingUrl = await getConsolidatedSheetUrl();
     if (existingUrl) {
+      // ensure it's also saved to localStorage as backup
+      const stored = await serverGet(CONSOLIDATED_SHEET_KEY);
+      if (stored) localStorage.setItem(CONSOLIDATED_SHEET_KEY, stored);
       return { sheetUrl: existingUrl, isNew: false };
     }
 
@@ -434,7 +493,7 @@ export const createConsolidatedProjectSheet = async (projects, gapi) => {
     }
 
     const sheetUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`;
-    storeConsolidatedSheet(sheetUrl, spreadsheetId);
+    await storeConsolidatedSheet(sheetUrl, spreadsheetId);
 
     return { sheetUrl, spreadsheetId, isNew: true };
   } catch (error) {

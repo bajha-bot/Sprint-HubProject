@@ -106,7 +106,7 @@ const MonthlyHealthDashboard = ({ projectName, clientName, projectStats, clientP
         // Client-level: fetch latest row from each project sheet
         if (!projectName && clientProjects?.length > 0) {
           const { getStoredProjectPlanSheets } = await import('../utils/projectPlanSheetService');
-          const allSheets = getStoredProjectPlanSheets();
+          const allSheets = await getStoredProjectPlanSheets();
           console.log('clientProjects:', clientProjects);
           console.log('allSheets keys:', Object.keys(allSheets));
           const results = [];
@@ -171,7 +171,7 @@ const MonthlyHealthDashboard = ({ projectName, clientName, projectStats, clientP
         }
 
         if (!projectName) { setLoading(false); return; }
-        const sheetUrl = getProjectPlanSheetUrl(projectName);
+        const sheetUrl = await getProjectPlanSheetUrl(projectName);
         if (!sheetUrl) { setLoading(false); return; }
         const spreadsheetId = sheetUrl.split('/d/')[1]?.split('/')[0];
 

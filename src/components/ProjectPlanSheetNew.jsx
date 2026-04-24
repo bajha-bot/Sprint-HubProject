@@ -16,6 +16,11 @@ const ProjectPlanSheetNew = ({ projectName, clientName, readOnly = false }) => {
   const [syncing, setSyncing] = useState(false);
   const [lastSynced, setLastSynced] = useState(null);
   const [clientSyncing, setClientSyncing] = useState(false);
+  const [consolidatedUrl, setConsolidatedUrl] = useState(null);
+
+  useEffect(() => {
+    getConsolidatedSheetUrl().then(setConsolidatedUrl);
+  }, [sheetUrl]);
 
   // Derive all projects for this client from employee data
   const clientProjects = clientName && employeeData?.records
@@ -34,14 +39,17 @@ const ProjectPlanSheetNew = ({ projectName, clientName, readOnly = false }) => {
   const handleSync = async () => {
     try {
       setSyncing(true);
+      console.log('[handleSync] Starting sync...');
       await syncConsolidatedSheet();
       const { clientName: cn, clientProjects: cp } = syncStateRef.current;
-      if (cn && cp.length > 0 && getClientConsolidatedSheetUrl(cn)) {
+      if (cn && cp.length > 0 && await getClientConsolidatedSheetUrl(cn)) {
         await syncClientConsolidatedSheet(cn, cp);
       }
       setLastSynced(new Date());
+      console.log('[handleSync] Sync completed successfully');
     } catch (err) {
-      alert('Sync failed: ' + err.message);
+      console.error('[handleSync] Sync failed:', err);
+      alert('❌ Sync failed: ' + err.message);
     } finally {
       setSyncing(false);
     }
@@ -59,7 +67,7 @@ const ProjectPlanSheetNew = ({ projectName, clientName, readOnly = false }) => {
       await Promise.all([initializeGoogleAPI(), initializeGIS()]);
       if (window.gapi.client.getToken() === null) await authenticate();
 
-      const existing = getClientConsolidatedSheetUrl(clientName);
+      const existing = await getClientConsolidatedSheetUrl(clientName);
       if (existing) {
         // just open — no sync on button click
         window.open(existing, '_blank');
@@ -77,6 +85,15 @@ const ProjectPlanSheetNew = ({ projectName, clientName, readOnly = false }) => {
 
   const handleSyncRef = useRef(handleSync);
   useEffect(() => { handleSyncRef.current = handleSync; }, [syncing, clientProjects]);
+
+  // Sync when user switches away from this project (data was likely entered)
+  useEffect(() => {
+    return () => {
+      if (window.gapi?.client?.getToken()) {
+        syncConsolidatedSheet().catch(() => {});
+      }
+    };
+  }, [projectName]);
 
   // Auto-sync every 2 minutes and on window focus
   useEffect(() => {
@@ -100,7 +117,7 @@ const ProjectPlanSheetNew = ({ projectName, clientName, readOnly = false }) => {
         setLoading(true);
         setError(null);
 
-        const existingUrl = getProjectPlanSheetUrl(projectName);
+        const existingUrl = await getProjectPlanSheetUrl(projectName);
         if (existingUrl) {
           console.log('Found existing sheet URL:', existingUrl);
           setSheetUrl(existingUrl);
@@ -172,8 +189,6 @@ const ProjectPlanSheetNew = ({ projectName, clientName, readOnly = false }) => {
       </div>
     );
   }
-
-  const consolidatedUrl = getConsolidatedSheetUrl();
 
   // readOnly with no sheet available
   if (readOnly && !sheetUrl) return (

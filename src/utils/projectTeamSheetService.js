@@ -1,35 +1,72 @@
+const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:5000';
+
+const serverGet = async (key) => {
+  try {
+    const res = await fetch(`${SERVER_URL}/api/sheet-ids`);
+    const data = await res.json();
+    const serverValue = data[key];
+    const localValue = localStorage.getItem(key);
+    const result = serverValue ?? localValue ?? null;
+    if (serverValue && !localValue) {
+      localStorage.setItem(key, serverValue);
+    }
+    return result;
+  } catch (e) {
+    console.warn('serverGet failed, falling back to localStorage:', e.message);
+    return localStorage.getItem(key);
+  }
+};
+
+const serverSet = async (key, value) => {
+  try {
+    const res = await fetch(`${SERVER_URL}/api/sheet-ids`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ [key]: value })
+    });
+    localStorage.setItem(key, value);
+  } catch (e) {
+    console.warn('serverSet failed, saving to localStorage only:', e.message);
+    localStorage.setItem(key, value);
+  }
+};
+
 const PROJECT_TEAM_SHEETS_KEY = 'sprintHub_projectTeam_sheets';
 const TEAM_CONSOLIDATED_SHEET_KEY = 'sprintHub_team_consolidated_sheet';
 
-export const getStoredProjectTeamSheets = () => {
-  const stored = localStorage.getItem(PROJECT_TEAM_SHEETS_KEY);
+export const getStoredProjectTeamSheets = async () => {
+  const stored = await serverGet(PROJECT_TEAM_SHEETS_KEY);
   return stored ? JSON.parse(stored) : {};
 };
 
-export const storeProjectTeamSheet = (projectName, sheetUrl, spreadsheetId) => {
-  const sheets = getStoredProjectTeamSheets();
+export const storeProjectTeamSheet = async (projectName, sheetUrl, spreadsheetId) => {
+  const sheets = await getStoredProjectTeamSheets();
   const resolvedId = spreadsheetId || sheetUrl?.split('/d/')[1]?.split('/')[0] || null;
   sheets[projectName] = { sheetUrl, spreadsheetId: resolvedId, createdAt: new Date().toISOString() };
-  localStorage.setItem(PROJECT_TEAM_SHEETS_KEY, JSON.stringify(sheets));
+  const value = JSON.stringify(sheets);
+  localStorage.setItem(PROJECT_TEAM_SHEETS_KEY, value);
+  await serverSet(PROJECT_TEAM_SHEETS_KEY, value);
 };
 
-export const getProjectTeamSheetUrl = (projectName) => {
-  const sheets = getStoredProjectTeamSheets();
+export const getProjectTeamSheetUrl = async (projectName) => {
+  const sheets = await getStoredProjectTeamSheets();
   return sheets[projectName]?.sheetUrl || null;
 };
 
-export const getTeamConsolidatedSheetUrl = () => {
-  const stored = localStorage.getItem(TEAM_CONSOLIDATED_SHEET_KEY);
+export const getTeamConsolidatedSheetUrl = async () => {
+  const stored = await serverGet(TEAM_CONSOLIDATED_SHEET_KEY);
   return stored ? JSON.parse(stored).sheetUrl : null;
 };
 
-export const getTeamConsolidatedSheetId = () => {
-  const stored = localStorage.getItem(TEAM_CONSOLIDATED_SHEET_KEY);
+export const getTeamConsolidatedSheetId = async () => {
+  const stored = await serverGet(TEAM_CONSOLIDATED_SHEET_KEY);
   return stored ? JSON.parse(stored).spreadsheetId : null;
 };
 
-export const storeTeamConsolidatedSheet = (sheetUrl, spreadsheetId) => {
-  localStorage.setItem(TEAM_CONSOLIDATED_SHEET_KEY, JSON.stringify({ sheetUrl, spreadsheetId, createdAt: new Date().toISOString() }));
+export const storeTeamConsolidatedSheet = async (sheetUrl, spreadsheetId) => {
+  const value = JSON.stringify({ sheetUrl, spreadsheetId, createdAt: new Date().toISOString() });
+  localStorage.setItem(TEAM_CONSOLIDATED_SHEET_KEY, value);
+  await serverSet(TEAM_CONSOLIDATED_SHEET_KEY, value);
 };
 
 const TEAM_HEADERS = [
@@ -85,8 +122,8 @@ const setPublicPermissions = async (gapi, spreadsheetId) => {
 };
 
 export const syncTeamConsolidatedSheet = async () => {
-  const consolidatedSheetId = getTeamConsolidatedSheetId();
-  if (!consolidatedSheetId) throw new Error('Consolidated team sheet not found. Please open a project team first.');
+  const consolidatedSheetId = await getTeamConsolidatedSheetId();
+  if (!consolidatedSheetId) return; // skip sync if no consolidated sheet yet
 
   const gapi = window.gapi;
 
@@ -102,7 +139,7 @@ export const syncTeamConsolidatedSheet = async () => {
     await authenticate();
   }
 
-  const allSheets = getStoredProjectTeamSheets();
+  const allSheets = await getStoredProjectTeamSheets();
   const errors = [];
   const allRows = [];
 
@@ -157,12 +194,13 @@ export const syncTeamConsolidatedSheet = async () => {
 
 export const createProjectTeamSheet = async (projectName, gapi) => {
   try {
-    const consolidatedSheetId = getTeamConsolidatedSheetId();
+    let consolidatedSheetId = await getTeamConsolidatedSheetId();
     if (!consolidatedSheetId) {
-      throw new Error('Please create the consolidated team sheet first by clicking "All Projects" button');
+      const result = await createTeamConsolidatedSheet(gapi);
+      consolidatedSheetId = result.spreadsheetId;
     }
 
-    const existingUrl = getProjectTeamSheetUrl(projectName);
+    const existingUrl = await getProjectTeamSheetUrl(projectName);
     if (existingUrl) {
       return { sheetUrl: existingUrl, isNew: false };
     }
@@ -184,7 +222,7 @@ export const createProjectTeamSheet = async (projectName, gapi) => {
     await setPublicPermissions(gapi, spreadsheetId);
 
     const sheetUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`;
-    storeProjectTeamSheet(projectName, sheetUrl, spreadsheetId);
+    await storeProjectTeamSheet(projectName, sheetUrl, spreadsheetId);
     await syncTeamConsolidatedSheet(gapi);
 
     return { sheetUrl, spreadsheetId, isNew: true };
@@ -196,7 +234,7 @@ export const createProjectTeamSheet = async (projectName, gapi) => {
 
 export const createTeamConsolidatedSheet = async (gapi) => {
   try {
-    const existingUrl = getTeamConsolidatedSheetUrl();
+    const existingUrl = await getTeamConsolidatedSheetUrl();
     if (existingUrl) {
       return { sheetUrl: existingUrl, isNew: false };
     }
@@ -218,7 +256,7 @@ export const createTeamConsolidatedSheet = async (gapi) => {
     await setPublicPermissions(gapi, spreadsheetId);
 
     const sheetUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`;
-    storeTeamConsolidatedSheet(sheetUrl, spreadsheetId);
+    await storeTeamConsolidatedSheet(sheetUrl, spreadsheetId);
 
     return { sheetUrl, spreadsheetId, isNew: true };
   } catch (error) {

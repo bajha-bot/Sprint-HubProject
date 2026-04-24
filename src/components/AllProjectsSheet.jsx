@@ -15,7 +15,7 @@ const AllProjectsSheet = () => {
         setLoading(true);
         setError(null);
 
-        const existingUrl = getConsolidatedSheetUrl();
+        const existingUrl = await getConsolidatedSheetUrl();
         if (existingUrl) {
           setSheetUrl(existingUrl);
           setLoading(false);

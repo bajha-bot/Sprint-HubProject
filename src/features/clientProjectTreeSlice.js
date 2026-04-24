@@ -1,6 +1,7 @@
 import { createSlice } from "@reduxjs/toolkit";
 
 const KEY = 'sprintHub_customTree';
+const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:5000';
 
 const load = () => {
   try {
@@ -17,13 +18,31 @@ const load = () => {
 };
 
 const persist = (state) => {
+  const data = {
+    customProjects: state.customProjects,
+    customFiles: state.customFiles,
+    deletedProjects: state.deletedProjects,
+    deletedClients: state.deletedClients,
+  };
+  const value = JSON.stringify(data);
+  // save to localStorage immediately
+  try { localStorage.setItem(KEY, value); } catch {}
+  // save to server permanently
+  fetch(`${SERVER_URL}/api/sheet-ids`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ [KEY]: value }),
+  }).catch(() => {});
+};
+
+// Load from server on startup, merge with localStorage
+export const loadCustomTreeFromServer = async () => {
   try {
-    localStorage.setItem(KEY, JSON.stringify({
-      customProjects: state.customProjects,
-      customFiles: state.customFiles,
-      deletedProjects: state.deletedProjects,
-      deletedClients: state.deletedClients,
-    }));
+    const res = await fetch(`${SERVER_URL}/api/sheet-ids`);
+    const data = await res.json();
+    if (data[KEY]) {
+      localStorage.setItem(KEY, data[KEY]);
+    }
   } catch {}
 };
 

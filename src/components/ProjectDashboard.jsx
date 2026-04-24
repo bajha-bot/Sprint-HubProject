@@ -19,7 +19,7 @@ const ProjectDashboard = ({ projectName }) => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const sheetUrl = getProjectPlanSheetUrl(projectName);x
+        const sheetUrl = await getProjectPlanSheetUrl(projectName);
         
         if (!sheetUrl) {
           setLoading(false);

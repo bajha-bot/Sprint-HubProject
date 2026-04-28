@@ -95,20 +95,13 @@ const ProjectPlanSheetNew = ({ projectName, clientName, readOnly = false }) => {
     };
   }, [projectName]);
 
-  // Auto-sync every 2 minutes and on window focus
+  // Auto-sync every 5 minutes only (removed focus-triggered sync to prevent mid-edit overwrites)
   useEffect(() => {
     if (!sheetUrl) return;
     const interval = setInterval(() => {
       if (window.gapi?.client?.getToken()) handleSyncRef.current();
-    }, 2 * 60 * 1000);
-    const onFocus = () => {
-      if (window.gapi?.client?.getToken()) handleSyncRef.current();
-    };
-    window.addEventListener('focus', onFocus);
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener('focus', onFocus);
-    };
+    }, 5 * 60 * 1000);
+    return () => clearInterval(interval);
   }, [sheetUrl]);
 
   useEffect(() => {

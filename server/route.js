@@ -15,7 +15,6 @@ const readSheetIds = () => {
 
 const writeSheetIds = (data) => {
   fs.writeFileSync(SHEET_IDS_FILE, JSON.stringify(data, null, 2));
-  // keep a backup copy
   fs.writeFileSync(SHEET_IDS_FILE + '.backup', JSON.stringify(data, null, 2));
 };
 

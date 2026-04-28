@@ -78,26 +78,38 @@ export const getOrAssignProjectRowPosition = (projectName) => {
 const PROJECT_PLAN_SHEETS_KEY = 'sprintHub_projectPlan_sheets';
 const CONSOLIDATED_SHEET_KEY = 'sprintHub_consolidated_sheet';
 
+const sanitizeProjectName = (name) => name?.replace(/[\r\n\t]+/g, ' ').trim() ?? '';
+
 export const getStoredProjectPlanSheets = async () => {
   const stored = await serverGet(PROJECT_PLAN_SHEETS_KEY);
-  return stored ? JSON.parse(stored) : {};
+  if (!stored) return {};
+  const raw = JSON.parse(stored);
+  // Normalize all keys on read to eliminate any newline-keyed duplicates
+  const normalized = {};
+  for (const [key, val] of Object.entries(raw)) {
+    const clean = sanitizeProjectName(key);
+    // If duplicate after sanitize, keep the one with a valid spreadsheetId
+    if (!normalized[clean] || (!normalized[clean].spreadsheetId && val.spreadsheetId)) {
+      normalized[clean] = val;
+    }
+  }
+  return normalized;
 };
 
 export const storeProjectPlanSheet = async (projectName, sheetUrl, spreadsheetId) => {
+  const cleanName = sanitizeProjectName(projectName);
   const sheets = await getStoredProjectPlanSheets();
   const resolvedId = spreadsheetId || sheetUrl?.split('/d/')[1]?.split('/')[0] || null;
-  sheets[projectName] = { sheetUrl, spreadsheetId: resolvedId, createdAt: new Date().toISOString() };
+  sheets[cleanName] = { sheetUrl, spreadsheetId: resolvedId, createdAt: new Date().toISOString() };
   const value = JSON.stringify(sheets);
-  // save to localStorage immediately as primary
   localStorage.setItem(PROJECT_PLAN_SHEETS_KEY, value);
-  // then save to server
   await serverSet(PROJECT_PLAN_SHEETS_KEY, value);
-  console.log('[storeProjectPlanSheet] saved:', projectName, resolvedId);
+  console.log('[storeProjectPlanSheet] saved:', cleanName, resolvedId);
 };
 
 export const getProjectPlanSheetUrl = async (projectName) => {
   const sheets = await getStoredProjectPlanSheets();
-  return sheets[projectName]?.sheetUrl || null;
+  return sheets[sanitizeProjectName(projectName)]?.sheetUrl || null;
 };
 
 export const getConsolidatedSheetUrl = async () => {
@@ -204,6 +216,19 @@ export const syncConsolidatedSheet = async () => {
 
   if (allRows.length === 0) {
     console.warn('[Sync] No rows found across all project sheets — skipping write');
+    return;
+  }
+
+  // Read existing row count to guard against partial overwrites
+  let existingCount = 0;
+  try {
+    const existing = await gapi.client.sheets.spreadsheets.values.get({ spreadsheetId: consolidatedSheetId, range: 'A2:A' });
+    existingCount = (existing.result.values || []).length;
+  } catch (_) {}
+
+  // Only overwrite if new data is at least 80% of existing rows (prevents partial sync from wiping data)
+  if (existingCount > 0 && allRows.length < existingCount * 0.8) {
+    console.warn(`[Sync] Skipping write: collected ${allRows.length} rows but sheet has ${existingCount} — likely a partial read`);
     return;
   }
 
@@ -354,6 +379,17 @@ export const syncClientConsolidatedSheet = async (clientName, clientProjects) =>
   }
 
   if (allRows.length === 0) throw new Error('No data found in any project sheets for this client.');
+
+  // Guard against partial sync overwriting more complete data
+  let existingCount = 0;
+  try {
+    const existing = await gapi.client.sheets.spreadsheets.values.get({ spreadsheetId: consolidatedSheetId, range: 'A2:A' });
+    existingCount = (existing.result.values || []).length;
+  } catch (_) {}
+  if (existingCount > 0 && allRows.length < existingCount * 0.8) {
+    console.warn(`[ClientSync] Skipping: collected ${allRows.length} rows but sheet has ${existingCount}`);
+    return;
+  }
 
   await gapi.client.sheets.spreadsheets.values.clear({ spreadsheetId: consolidatedSheetId, range: 'A2:W' });
   await gapi.client.sheets.spreadsheets.values.update({

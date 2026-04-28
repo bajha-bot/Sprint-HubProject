@@ -14,6 +14,7 @@ const ProjectTeamSheetNew = ({ projectName, readOnly = false }) => {
   const [error, setError] = useState(null);
   const [isNew, setIsNew] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [consolidatedUrl, setConsolidatedUrl] = useState(null);
 
   const handleSync = async () => {
     try {
@@ -40,7 +41,6 @@ const ProjectTeamSheetNew = ({ projectName, readOnly = false }) => {
           return;
         }
 
-        // In readOnly mode, don't create a new sheet
         if (readOnly) {
           setLoading(false);
           return;
@@ -56,7 +56,6 @@ const ProjectTeamSheetNew = ({ projectName, readOnly = false }) => {
           await authenticate();
         }
 
-        // Ensure consolidated sheet exists before creating individual team sheet
         await createTeamConsolidatedSheet(window.gapi);
 
         const result = await createProjectTeamSheet(projectName, window.gapi);
@@ -76,6 +75,10 @@ const ProjectTeamSheetNew = ({ projectName, readOnly = false }) => {
     if (projectName) initializeSheet();
   }, [projectName]);
 
+  useEffect(() => {
+    getTeamConsolidatedSheetUrl().then(url => setConsolidatedUrl(url));
+  }, [sheetUrl]);
+
   if (loading) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
@@ -94,21 +97,13 @@ const ProjectTeamSheetNew = ({ projectName, readOnly = false }) => {
           <h4>Error</h4>
           <p>{error}</p>
         </div>
-        <button
-          onClick={() => window.location.reload()}
-          style={{ padding: '10px 20px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-        >
+        <button onClick={() => window.location.reload()}
+          style={{ padding: '10px 20px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
           Refresh Page
         </button>
       </div>
     );
   }
-
-  const [consolidatedUrl, setConsolidatedUrl] = useState(null);
-
-  useEffect(() => {
-    getTeamConsolidatedSheetUrl().then(setConsolidatedUrl);
-  }, [sheetUrl]);
 
   if (readOnly && !sheetUrl) return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', padding: '40px', textAlign: 'center' }}>
@@ -143,7 +138,9 @@ const ProjectTeamSheetNew = ({ projectName, readOnly = false }) => {
       </div>
       {sheetUrl && (
         <div style={{ position: 'relative', flex: 1, width: '100%', minHeight: 0, overflow: 'auto' }}>
-          <iframe key={sheetUrl} src={readOnly ? sheetUrl.replace('/edit', '/preview') : sheetUrl} style={{ width: '100%', height: '100%', minHeight: '600px', border: 'none', display: 'block' }} title={`${projectName} Project Team`} />
+          <iframe key={sheetUrl} src={readOnly ? sheetUrl.replace('/edit', '/preview') : sheetUrl}
+            style={{ width: '100%', height: '100%', minHeight: '600px', border: 'none', display: 'block' }}
+            title={`${projectName} Project Team`} />
           {readOnly && (
             <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 10, cursor: 'not-allowed', pointerEvents: 'none' }} />
           )}

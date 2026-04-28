@@ -291,8 +291,7 @@ export const createProjectPlanSheet = async (projectName, gapi) => {
     const sheetUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`;
     console.log('[createProjectPlanSheet] storing sheet:', projectName, spreadsheetId);
     await storeProjectPlanSheet(projectName, sheetUrl, spreadsheetId);
-    console.log('[createProjectPlanSheet] stored successfully, now syncing...');
-    await syncConsolidatedSheet();
+    // Skip sync on creation — sheet is empty, sync after adding data
 
     return { sheetUrl, spreadsheetId, isNew: true };
   } catch (error) {

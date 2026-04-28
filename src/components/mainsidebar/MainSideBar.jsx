@@ -53,7 +53,7 @@ function MainSideBar() {
       </Link> */}
       <Link to="/sprint-hub-app">
         <div className={`sideBarItem ${value === 6 ? "active" : ""}`} onClick={() => dispatch(changeNavbarState(6))}>
-          <i className="bi bi-shield-lock sideIcons"></i><span className="sideBarLabel">My Teams</span>
+          <i className="bi bi-shield-lock sideIcons"></i><span className="sideBarLabel">Logout</span>
         </div>
       </Link>
     </div>

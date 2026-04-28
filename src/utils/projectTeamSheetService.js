@@ -2,15 +2,13 @@ const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:5000';
 
 const serverGet = async (key) => {
   try {
-    const res = await fetch(`${SERVER_URL}/api/sheet-ids`);
-    const data = await res.json();
-    const serverValue = data[key];
-    const localValue = localStorage.getItem(key);
-    const result = serverValue ?? localValue ?? null;
-    if (serverValue && !localValue) {
-      localStorage.setItem(key, serverValue);
+    const res = await fetch(`${SERVER_URL}/api/storage/${key}`);
+    if (!res.ok) throw new Error('Server error');
+    const { data } = await res.json();
+    if (data !== null && data !== undefined) {
+      localStorage.setItem(key, typeof data === 'string' ? data : JSON.stringify(data));
     }
-    return result;
+    return data ?? localStorage.getItem(key);
   } catch (e) {
     console.warn('serverGet failed, falling back to localStorage:', e.message);
     return localStorage.getItem(key);
@@ -18,16 +16,15 @@ const serverGet = async (key) => {
 };
 
 const serverSet = async (key, value) => {
+  localStorage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value));
   try {
-    const res = await fetch(`${SERVER_URL}/api/sheet-ids`, {
-      method: 'POST',
+    await fetch(`${SERVER_URL}/api/storage/${key}`, {
+      method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ [key]: value })
+      body: JSON.stringify(value)
     });
-    localStorage.setItem(key, value);
   } catch (e) {
     console.warn('serverSet failed, saving to localStorage only:', e.message);
-    localStorage.setItem(key, value);
   }
 };
 
@@ -223,7 +220,7 @@ export const createProjectTeamSheet = async (projectName, gapi) => {
 
     const sheetUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`;
     await storeProjectTeamSheet(projectName, sheetUrl, spreadsheetId);
-    await syncTeamConsolidatedSheet(gapi);
+    // Skip sync on creation — sheet is empty, sync after adding data
 
     return { sheetUrl, spreadsheetId, isNew: true };
   } catch (error) {

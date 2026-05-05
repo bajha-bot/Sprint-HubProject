@@ -7,6 +7,8 @@ export default defineConfig(({ mode }) => {
   //  base: '/Sprint-HubProject/', 
   plugins: [react()],
   server: {
+    host: true,
+    port: 5173,
     proxy: {
       '/myTeam': {
         target: env.VITE_API_BASE_URL,

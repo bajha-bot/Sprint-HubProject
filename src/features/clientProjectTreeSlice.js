@@ -1,7 +1,6 @@
 import { createSlice } from "@reduxjs/toolkit";
 
 const KEY = 'sprintHub_customTree';
-const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:5000';
 
 const load = () => {
   try {
@@ -19,31 +18,31 @@ const load = () => {
 
 const persist = (state) => {
   const data = {
-    customProjects: state.customProjects,
-    customFiles: state.customFiles,
-    deletedProjects: state.deletedProjects,
-    deletedClients: state.deletedClients,
+    customProjects: JSON.parse(JSON.stringify(state.customProjects)),
+    customFiles: JSON.parse(JSON.stringify(state.customFiles)),
+    deletedProjects: [...state.deletedProjects],
+    deletedClients: [...state.deletedClients],
   };
-  const value = JSON.stringify(data);
-  // save to localStorage immediately
-  try { localStorage.setItem(KEY, value); } catch {}
-  // save to server permanently
-  fetch(`${SERVER_URL}/api/sheet-ids`, {
+  try { localStorage.setItem(KEY, JSON.stringify(data)); } catch {}
+  fetch(`/api/sheet-ids`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ [KEY]: value }),
+    body: JSON.stringify({ [KEY]: data }),
   }).catch(() => {});
 };
 
 // Load from server on startup, merge with localStorage
 export const loadCustomTreeFromServer = async () => {
   try {
-    const res = await fetch(`${SERVER_URL}/api/sheet-ids`);
+    const res = await fetch(`/api/sheet-ids`);
     const data = await res.json();
     if (data[KEY]) {
-      localStorage.setItem(KEY, data[KEY]);
+      const parsed = typeof data[KEY] === 'string' ? JSON.parse(data[KEY]) : data[KEY];
+      localStorage.setItem(KEY, JSON.stringify(parsed));
+      return parsed;
     }
   } catch {}
+  return null;
 };
 
 const saved = load();
@@ -163,6 +162,13 @@ const clientProjectTreeSlice = createSlice({
       state.openedClients = [];
       state.openedProjects = [];
     },
+    loadFromServer: (state, action) => {
+      const { customProjects, customFiles, deletedProjects, deletedClients } = action.payload;
+      if (customProjects) state.customProjects = customProjects;
+      if (customFiles) state.customFiles = customFiles;
+      if (deletedProjects) state.deletedProjects = deletedProjects;
+      if (deletedClients) state.deletedClients = deletedClients;
+    },
   },
 });
 
@@ -172,7 +178,7 @@ export const {
   renameClient, deleteClient,
   renameProject, deleteProject,
   renameFile, deleteFile,
-  resetTree,
+  resetTree, loadFromServer,
 } = clientProjectTreeSlice.actions;
 
 export default clientProjectTreeSlice.reducer;

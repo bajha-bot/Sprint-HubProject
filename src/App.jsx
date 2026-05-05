@@ -7,7 +7,7 @@ import Notifications from "./pages/notifications/Notifications";
 import Search from "./pages/search/Search";
 import Browse from "./pages/browse/Browse";
 import Browser from "./pages/browser/Browser";
-import { useSelector } from "react-redux";
+import { useSelector, useDispatch } from "react-redux";
 import Manage from "./pages/manage/Manage";
 import EmployeeStatsCard from "./components/EmployeeStatsCard";
 import CeipalDetails from "./components/CeipalDetails";
@@ -18,9 +18,19 @@ import { initializeToken } from "./constants/apiToken";
 
 function App() {
   const navbarState = useSelector((state) => state.navbarChange.value);
+  const dispatch = useDispatch();
 
   useEffect(() => {
     initializeToken();
+    const syncTree = () =>
+      import('./features/clientProjectTreeSlice').then(({ loadCustomTreeFromServer }) =>
+        loadCustomTreeFromServer().then(data => {
+          if (data) dispatch({ type: 'clientProjectTree/loadFromServer', payload: data });
+        })
+      );
+    syncTree();
+    const interval = setInterval(syncTree, 10000);
+    return () => clearInterval(interval);
   }, []);
 
   return (

@@ -1,13 +1,10 @@
-const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:5000';
-
 const serverGet = async (key) => {
   try {
-    const res = await fetch(`${SERVER_URL}/api/sheet-ids`);
+    const res = await fetch(`/api/sheet-ids`);
     const data = await res.json();
     const serverValue = data[key];
     const localValue = localStorage.getItem(key);
     const result = serverValue ?? localValue ?? null;
-    // mirror server value back to localStorage if missing
     if (serverValue && !localValue) {
       localStorage.setItem(key, serverValue);
     }
@@ -20,7 +17,7 @@ const serverGet = async (key) => {
 
 const serverSet = async (key, value) => {
   try {
-    const res = await fetch(`${SERVER_URL}/api/sheet-ids`, {
+    const res = await fetch(`/api/sheet-ids`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ [key]: value })
@@ -83,7 +80,7 @@ const sanitizeProjectName = (name) => name?.replace(/[\r\n\t]+/g, ' ').trim() ??
 export const getStoredProjectPlanSheets = async () => {
   const stored = await serverGet(PROJECT_PLAN_SHEETS_KEY);
   if (!stored) return {};
-  const raw = JSON.parse(stored);
+  const raw = typeof stored === 'string' ? JSON.parse(stored) : stored; 
   // Normalize all keys on read to eliminate any newline-keyed duplicates
   const normalized = {};
   for (const [key, val] of Object.entries(raw)) {
@@ -114,13 +111,17 @@ export const getProjectPlanSheetUrl = async (projectName) => {
 
 export const getConsolidatedSheetUrl = async () => {
   const stored = await serverGet(CONSOLIDATED_SHEET_KEY);
-  return stored ? JSON.parse(stored).sheetUrl : null;
+  if (!stored) return null;
+  const parsed = typeof stored === 'string' ? JSON.parse(stored) : stored;
+  return parsed.sheetUrl;
 };
 
 export const getConsolidatedSheetId = async () => {
   const stored = await serverGet(CONSOLIDATED_SHEET_KEY);
   console.log('[getConsolidatedSheetId] raw stored value:', stored);
-  return stored ? JSON.parse(stored).spreadsheetId : null;
+  if (!stored) return null;
+  const parsed = typeof stored === 'string' ? JSON.parse(stored) : stored;
+  return parsed.spreadsheetId;
 };
 
 export const storeConsolidatedSheet = async (sheetUrl, spreadsheetId) => {
@@ -184,7 +185,7 @@ export const syncConsolidatedSheet = async () => {
     if (!spreadsheetId || spreadsheetId === 'null') {
       console.warn(`[Sync] Skipping ${projectName}: invalid spreadsheetId`);
       continue;
-    }
+    } 
     try {
       const values = await fetchSheetWithRetry(gapi, spreadsheetId, 'A2:W');
       const rows = values.filter(row => row.some(cell => cell?.toString().trim()));
@@ -329,19 +330,19 @@ const CLIENT_CONSOLIDATED_KEY = 'sprintHub_client_consolidated_sheets';
 
 export const getClientConsolidatedSheetUrl = async (clientName) => {
   const stored = await serverGet(CLIENT_CONSOLIDATED_KEY);
-  const all = stored ? JSON.parse(stored) : {};
+  const all = stored ? (typeof stored === 'string' ? JSON.parse(stored) : stored) : {};
   return all[clientName]?.sheetUrl || null;
 };
 
 export const getClientConsolidatedSheetId = async (clientName) => {
   const stored = await serverGet(CLIENT_CONSOLIDATED_KEY);
-  const all = stored ? JSON.parse(stored) : {};
+  const all = stored ? (typeof stored === 'string' ? JSON.parse(stored) : stored) : {};
   return all[clientName]?.spreadsheetId || null;
 };
 
 const storeClientConsolidatedSheet = async (clientName, sheetUrl, spreadsheetId) => {
   const stored = await serverGet(CLIENT_CONSOLIDATED_KEY);
-  const all = stored ? JSON.parse(stored) : {};
+  const all = stored ? (typeof stored === 'string' ? JSON.parse(stored) : stored) : {};
   all[clientName] = { sheetUrl, spreadsheetId, createdAt: new Date().toISOString() };
   await serverSet(CLIENT_CONSOLIDATED_KEY, JSON.stringify(all));
 };

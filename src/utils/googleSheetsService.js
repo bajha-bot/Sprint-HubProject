@@ -7,11 +7,9 @@ const SCOPES = 'https://www.googleapis.com/auth/spreadsheets https://www.googlea
 const STATIC_SHEET_ID_KEY = 'sprintHub_allEmployees_sheetId';
 const STATIC_CEIPAL_SHEET_ID_KEY = 'sprintHub_ceipal_sheetId';
 
-const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:5000';
-
 const getSheetIdFromServer = async (key) => {
   try {
-    const res = await fetch(`${SERVER_URL}/api/sheet-ids`);
+    const res = await fetch(`/api/sheet-ids`);
     const data = await res.json();
     return data[key] || localStorage.getItem(key) || null;
   } catch (e) {
@@ -21,7 +19,7 @@ const getSheetIdFromServer = async (key) => {
 
 const saveSheetIdToServer = async (key, value) => {
   try {
-    await fetch(`${SERVER_URL}/api/sheet-ids`, {
+    await fetch(`/api/sheet-ids`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ [key]: value })

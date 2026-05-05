@@ -1,8 +1,6 @@
-const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:5000';
-
 const serverGet = async (key) => {
   try {
-    const res = await fetch(`${SERVER_URL}/api/storage/${key}`);
+    const res = await fetch(`/api/storage/${key}`);
     if (!res.ok) throw new Error('Server error');
     const { data } = await res.json();
     if (data !== null && data !== undefined) {
@@ -18,7 +16,7 @@ const serverGet = async (key) => {
 const serverSet = async (key, value) => {
   localStorage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value));
   try {
-    await fetch(`${SERVER_URL}/api/storage/${key}`, {
+    await fetch(`/api/storage/${key}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(value)
@@ -33,7 +31,8 @@ const TEAM_CONSOLIDATED_SHEET_KEY = 'sprintHub_team_consolidated_sheet';
 
 export const getStoredProjectTeamSheets = async () => {
   const stored = await serverGet(PROJECT_TEAM_SHEETS_KEY);
-  return stored ? JSON.parse(stored) : {};
+  if (!stored) return {};
+  return typeof stored === 'string' ? JSON.parse(stored) : stored;
 };
 
 export const storeProjectTeamSheet = async (projectName, sheetUrl, spreadsheetId) => {
@@ -52,12 +51,16 @@ export const getProjectTeamSheetUrl = async (projectName) => {
 
 export const getTeamConsolidatedSheetUrl = async () => {
   const stored = await serverGet(TEAM_CONSOLIDATED_SHEET_KEY);
-  return stored ? JSON.parse(stored).sheetUrl : null;
+  if (!stored) return null;
+  const parsed = typeof stored === 'string' ? JSON.parse(stored) : stored;
+  return parsed.sheetUrl;
 };
 
 export const getTeamConsolidatedSheetId = async () => {
   const stored = await serverGet(TEAM_CONSOLIDATED_SHEET_KEY);
-  return stored ? JSON.parse(stored).spreadsheetId : null;
+  if (!stored) return null;
+  const parsed = typeof stored === 'string' ? JSON.parse(stored) : stored;
+  return parsed.spreadsheetId;
 };
 
 export const storeTeamConsolidatedSheet = async (sheetUrl, spreadsheetId) => {

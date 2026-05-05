@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { initializeGoogleAPI, initializeGIS, authenticate } from '../utils/googleSheetsService';
 import { createProjectPlanSheet, getProjectPlanSheetUrl, getConsolidatedSheetUrl, syncConsolidatedSheet, createClientConsolidatedSheet, getClientConsolidatedSheetUrl, syncClientConsolidatedSheet } from '../utils/projectPlanSheetService';
 import { updateFileLinkByName } from '../features/createFolderFilesSlice';
@@ -13,6 +13,7 @@ const ProjectPlanSheetNew = ({ projectName, clientName, readOnly = false }) => {
 
   const dispatch = useDispatch();
   const { data: employeeData } = useGetAllEmployees();
+  const deletedProjects = useSelector(state => state.clientProjectTree.deletedProjects);
   const [syncing, setSyncing] = useState(false);
   const [lastSynced, setLastSynced] = useState(null);
   const [clientSyncing, setClientSyncing] = useState(false);
@@ -40,7 +41,7 @@ const ProjectPlanSheetNew = ({ projectName, clientName, readOnly = false }) => {
     try {
       setSyncing(true);
       console.log('[handleSync] Starting sync...');
-      await syncConsolidatedSheet();
+      await syncConsolidatedSheet(deletedProjects);
       const { clientName: cn, clientProjects: cp } = syncStateRef.current;
       if (cn && cp.length > 0 && await getClientConsolidatedSheetUrl(cn)) {
         await syncClientConsolidatedSheet(cn, cp);
@@ -90,7 +91,7 @@ const ProjectPlanSheetNew = ({ projectName, clientName, readOnly = false }) => {
   useEffect(() => {
     return () => {
       if (window.gapi?.client?.getToken()) {
-        syncConsolidatedSheet().catch(() => {});
+        syncConsolidatedSheet(deletedProjects).catch(() => {});
       }
     };
   }, [projectName]);
@@ -243,7 +244,7 @@ const ProjectPlanSheetNew = ({ projectName, clientName, readOnly = false }) => {
       )}
       {sheetUrl && (
         <div style={{ position: 'relative', flex: 1, width: '100%', minHeight: 0, overflow: 'auto' }}>
-          <iframe key={sheetUrl} src={readOnly ? sheetUrl.replace('/edit', '/preview') : sheetUrl} style={{ width: '100%', height: '100%', minHeight: '600px', border: 'none', display: 'block' }} title={`${projectName} Project Plan`} />
+          <iframe key={sheetUrl} src={readOnly ? sheetUrl.replace('/edit', '/preview') : sheetUrl.includes('?') ? sheetUrl + '&embedded=true' : sheetUrl + '?embedded=true'} style={{ width: '100%', height: '100%', minHeight: '600px', border: 'none', display: 'block' }} title={`${projectName} Project Plan`} />
           {readOnly && (
             <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 10, cursor: 'not-allowed', pointerEvents: 'none' }} />
           )}

@@ -7,6 +7,7 @@ import ProjectTeamSheetNew from "../../components/ProjectTeamSheetNew";
 import AllProjectsSheet from "../../components/AllProjectsSheet";
 import GoogleSheetSetupGuide from "../../components/GoogleSheetSetupGuide";
 import MonthlyHealthDashboard from "../../components/MonthlyHealthDashboard";
+import { syncConsolidatedSheet } from "../../utils/projectPlanSheetService";
 
 import { useSelector, useDispatch } from "react-redux";
 import { openFileLink } from "../../features/openFileSlice";
@@ -27,7 +28,26 @@ function Browser() {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 
-  if (authLoading) return <div style={{ padding: '2rem' }}>Loading...</div>;
+  const [cleaning, setCleaning] = useState(false);
+  const deletedProjects = useSelector(state => state.clientProjectTree.deletedProjects);
+
+  const handleCleanMergedSheet = async () => {
+    try {
+      setCleaning(true);
+      if (!window.gapi?.client?.getToken()) {
+        const { initializeGoogleAPI, initializeGIS, authenticate } = await import('../../utils/googleSheetsService');
+        await Promise.all([initializeGoogleAPI(), initializeGIS()]);
+        await authenticate();
+      }
+      await syncConsolidatedSheet(deletedProjects);
+      alert('✅ Merged sheet cleaned successfully!');
+    } catch (err) {
+      alert('❌ Failed: ' + err.message);
+    } finally {
+      setCleaning(false);
+    }
+  };
+
   if (!user) { navigate('/role-based-login'); return null; }
 
   const handleProjectTeamClick = (clientName, projectName) => {
@@ -88,6 +108,13 @@ function Browser() {
               style={{ padding: "4px 8px", fontSize: "12px", background: activeTab === 'all-projects' ? "#1a6d8c" : "#2a89ac", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}
             >
               All Projects
+            </button>
+            <button
+              onClick={handleCleanMergedSheet}
+              disabled={cleaning}
+              style={{ padding: "4px 8px", fontSize: "12px", background: cleaning ? "#999" : "#dc3545", color: "white", border: "none", borderRadius: "4px", cursor: cleaning ? "not-allowed" : "pointer" }}
+            >
+              {cleaning ? 'Cleaning...' : '🧹 Clean Merged'}
             </button>
             {/* <button 
               onClick={() => {

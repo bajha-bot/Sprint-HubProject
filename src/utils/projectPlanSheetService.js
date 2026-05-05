@@ -104,6 +104,16 @@ export const storeProjectPlanSheet = async (projectName, sheetUrl, spreadsheetId
   console.log('[storeProjectPlanSheet] saved:', cleanName, resolvedId);
 };
 
+export const deleteProjectPlanSheet = async (projectName) => {
+  const cleanName = sanitizeProjectName(projectName);
+  const sheets = await getStoredProjectPlanSheets();
+  delete sheets[cleanName];
+  const value = JSON.stringify(sheets);
+  localStorage.setItem(PROJECT_PLAN_SHEETS_KEY, value);
+  await serverSet(PROJECT_PLAN_SHEETS_KEY, value);
+  console.log('[deleteProjectPlanSheet] removed:', cleanName);
+};
+
 export const getProjectPlanSheetUrl = async (projectName) => {
   const sheets = await getStoredProjectPlanSheets();
   return sheets[sanitizeProjectName(projectName)]?.sheetUrl || null;
@@ -150,10 +160,9 @@ const fetchSheetWithRetry = async (gapi, spreadsheetId, range, retries = 3) => {
   }
 };
 
-export const syncConsolidatedSheet = async () => {
+export const syncConsolidatedSheet = async (deletedProjects = []) => {
   console.log('[syncConsolidatedSheet] called');
   const consolidatedSheetId = await getConsolidatedSheetId();
-  console.log('[syncConsolidatedSheet] consolidatedSheetId:', consolidatedSheetId);
   if (!consolidatedSheetId) {
     console.warn('[syncConsolidatedSheet] No consolidated sheet ID found - returning early');
     return;
@@ -174,69 +183,39 @@ export const syncConsolidatedSheet = async () => {
   }
 
   const allSheets = await getStoredProjectPlanSheets();
-  console.log('[Sync] allSheets from server:', JSON.stringify(allSheets));
-  console.log('[Sync] consolidatedSheetId:', consolidatedSheetId);
 
-  const allRows = [];
+  const validEntries = Object.entries(allSheets).filter(([projectName, sheetData]) => {
+    if (deletedProjects.some(d => d.toLowerCase() === projectName.toLowerCase())) return false;
+    const id = sheetData.spreadsheetId || sheetData.sheetUrl?.split('/d/')[1]?.split('/')[0];
+    return id && id !== 'null';
+  });
 
-  for (const [projectName, sheetData] of Object.entries(allSheets)) {
-    const spreadsheetId = sheetData.spreadsheetId || sheetData.sheetUrl?.split('/d/')[1]?.split('/')[0];
-    console.log(`[Sync] Reading project: ${projectName}, spreadsheetId: ${spreadsheetId}`);
-    if (!spreadsheetId || spreadsheetId === 'null') {
-      console.warn(`[Sync] Skipping ${projectName}: invalid spreadsheetId`);
-      continue;
-    } 
-    try {
-      const values = await fetchSheetWithRetry(gapi, spreadsheetId, 'A2:W');
-      const rows = values.filter(row => row.some(cell => cell?.toString().trim()));
-      console.log(`[Sync] ${projectName}: found ${rows.length} rows`);
-      allRows.push(...rows);
-    } catch (e) {
-      const status = e?.result?.error?.code || e?.status;
-      console.error(`[Sync] Error reading ${projectName}:`, status, e?.result?.error?.message);
-      if (status === 403) {
-        try {
-          await gapi.client.request({
-            path: `https://www.googleapis.com/drive/v3/files/${spreadsheetId}/permissions`,
-            method: 'POST',
-            body: { role: 'writer', type: 'anyone' }
-          });
-          const values = await fetchSheetWithRetry(gapi, spreadsheetId, 'A2:W');
-          const rows = values.filter(row => row.some(cell => cell?.toString().trim()));
-          console.log(`[Sync] ${projectName} after permission fix: found ${rows.length} rows`);
-          allRows.push(...rows);
-        } catch (retryErr) {
-          console.error(`[Sync] Retry failed for ${projectName}:`, retryErr);
-        }
-      }
-    }
-    await sleep(300);
-  }
+  const results = await Promise.allSettled(
+    validEntries.map(([projectName, sheetData]) => {
+      const spreadsheetId = sheetData.spreadsheetId || sheetData.sheetUrl?.split('/d/')[1]?.split('/')[0];
+      return fetchSheetWithRetry(gapi, spreadsheetId, 'A2:W')
+        .then(values => values.filter(row => row.some(cell => cell?.toString().trim())));
+    })
+  );
+
+  const allRows = results.flatMap((r, i) => {
+    if (r.status === 'fulfilled') return r.value;
+    console.warn(`[Sync] Failed to read ${validEntries[i][0]}:`, r.reason?.result?.error?.message || r.reason);
+    return [];
+  });
 
   console.log('[Sync] Total rows to write:', allRows.length);
 
-  if (allRows.length === 0) {
-    console.warn('[Sync] No rows found across all project sheets — skipping write');
-    return;
-  }
-
-  // Read existing row count to guard against partial overwrites
-  let existingCount = 0;
-  try {
-    const existing = await gapi.client.sheets.spreadsheets.values.get({ spreadsheetId: consolidatedSheetId, range: 'A2:A' });
-    existingCount = (existing.result.values || []).length;
-  } catch (_) {}
-
-  // Only overwrite if new data is at least 80% of existing rows (prevents partial sync from wiping data)
-  if (existingCount > 0 && allRows.length < existingCount * 0.8) {
-    console.warn(`[Sync] Skipping write: collected ${allRows.length} rows but sheet has ${existingCount} — likely a partial read`);
-    return;
-  }
-
+  // Always clear and rewrite so deleted projects are removed from the sheet
   await gapi.client.sheets.spreadsheets.values.clear({
     spreadsheetId: consolidatedSheetId,
     range: 'A2:W'
   });
+
+  if (allRows.length === 0) {
+    console.warn('[Sync] No rows found — sheet cleared');
+    return;
+  }
 
   await gapi.client.sheets.spreadsheets.values.update({
     spreadsheetId: consolidatedSheetId,

@@ -1,4 +1,5 @@
 import { createSlice } from "@reduxjs/toolkit";
+import { deleteProjectPlanSheet } from '../utils/projectPlanSheetService';
 
 const KEY = 'sprintHub_customTree';
 
@@ -129,19 +130,18 @@ const clientProjectTreeSlice = createSlice({
     },
     deleteProject: (state, action) => {
       const { projectName } = action.payload;
-      // remove from customProjects across all clients (case-insensitive)
       Object.keys(state.customProjects).forEach(c => {
         state.customProjects[c] = state.customProjects[c].filter(
           p => p.toLowerCase() !== projectName.toLowerCase()
         );
       });
-      // blocklist so API-sourced project with same name also hides
       if (!state.deletedProjects.some(d => d.toLowerCase() === projectName.toLowerCase())) {
         state.deletedProjects.push(projectName);
       }
       delete state.customFiles[projectName];
       state.openedProjects = state.openedProjects.filter(p => p.toLowerCase() !== projectName.toLowerCase());
       persist(state);
+      deleteProjectPlanSheet(projectName);
     },
     renameFile: (state, action) => {
       const { projectName, oldName, newName } = action.payload;

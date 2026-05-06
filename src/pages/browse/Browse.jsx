@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import "./Browse.css";
 import ContentSection from "../../components/browser/contentSection/ContentSection1";
 import ClientProjectTree from "../../components/ClientProjectTree";
@@ -27,6 +27,15 @@ function Browse() {
   const location = useLocation();
   const searchClient = location.state?.searchClient || null;
   const searchProject = location.state?.searchProject || null;
+
+  // Auto-open project when navigating from search
+  useEffect(() => {
+    if (searchProject && employeeData?.records) {
+      const emp = employeeData.records.find(e => e.employeeAllocationDataDTO?.project?.projectName === searchProject);
+      const clientName = emp?.employeeAllocationDataDTO?.parentAccount?.accountName || null;
+      handleProjectPlanClick(clientName, searchProject);
+    }
+  }, [searchProject, employeeData]);
 
   if (authLoading) return <div style={{ padding: '2rem' }}>Loading...</div>;
   if (!user) { navigate('/role-based-login'); return null; }

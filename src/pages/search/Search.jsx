@@ -19,13 +19,9 @@ function Search() {
     return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 
-  function doSearch(text) {
+  async function doSearch(text) {
     setSearchText(text);
-    if (!text.trim()) {
-      setResults([]);
-      setSearched(false);
-      return;
-    }
+    if (!text.trim()) { setResults([]); setSearched(false); return; }
 
     const regex = new RegExp(escapeRegex(text), 'i');
     let found = [];
@@ -34,9 +30,7 @@ function Search() {
     function recurse(node) {
       if (Array.isArray(node)) { node.forEach(recurse); return; }
       if (typeof node === 'object' && node !== null) {
-        if (node.name && regex.test(node.name)) {
-          found.push({ name: node.name, type: node.type, url: node.url || null });
-        }
+        if (node.name && regex.test(node.name)) found.push({ name: node.name, type: node.type, url: node.url || null });
         Object.values(node).forEach(recurse);
       }
     }
@@ -44,17 +38,23 @@ function Search() {
 
     // Search clients and projects from employee API
     if (employeeData?.records) {
-      const clients = [...new Set(employeeData.records.map(emp =>
-        emp.employeeAllocationDataDTO?.parentAccount?.accountName).filter(Boolean))];
+      const clients = [...new Set(employeeData.records.map(emp => emp.employeeAllocationDataDTO?.parentAccount?.accountName).filter(Boolean))];
       clients.forEach(name => { if (regex.test(name)) found.push({ name, type: 'client' }); });
-
-      const projects = [...new Set(employeeData.records.map(emp =>
-        emp.employeeAllocationDataDTO?.project?.projectName).filter(Boolean))];
+      const projects = [...new Set(employeeData.records.map(emp => emp.employeeAllocationDataDTO?.project?.projectName).filter(Boolean))];
       projects.forEach(name => { if (regex.test(name)) found.push({ name, type: 'project' }); });
     }
 
-    // Search custom clients and projects from manage section
-    Object.entries(customProjects).forEach(([clientName, projects]) => {
+    // Search custom projects from Redux + server
+    let serverCustomProjects = customProjects;
+    try {
+      const res = await fetch('/api/sheet-ids');
+      const data = await res.json();
+      const tree = data['sprintHub_customTree'];
+      const parsed = typeof tree === 'string' ? JSON.parse(tree) : tree;
+      if (parsed?.customProjects) serverCustomProjects = parsed.customProjects;
+    } catch {}
+
+    Object.entries(serverCustomProjects).forEach(([clientName, projects]) => {
       if (regex.test(clientName)) found.push({ name: clientName, type: 'client' });
       projects.forEach(projectName => {
         if (!deletedProjects.some(d => d.toLowerCase() === projectName.toLowerCase())) {
@@ -73,7 +73,6 @@ function Search() {
     // Deduplicate
     const seen = new Set();
     found = found.filter(r => { if (seen.has(r.name)) return false; seen.add(r.name); return true; });
-
     setResults(found);
     setSearched(true);
   }

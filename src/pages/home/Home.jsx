@@ -52,69 +52,58 @@ function Home() {
     return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
 
-function searchByName(searchText) {
-  if (!searchText.trim()) {
-    setSearchOutput([]);
-    setSearchFilter({ client: null, project: null });
-    return;
-  }
+  async function searchByName(searchText) {
+    if (!searchText.trim()) { setSearchOutput([]); setSearchFilter({ client: null, project: null }); return; }
 
-  const safe = escapeRegex(searchText);
-  const regex = new RegExp(safe, "i");
-  let results = [];
+    const safe = escapeRegex(searchText);
+    const regex = new RegExp(safe, "i");
+    let results = [];
 
-  // Search Redux static folder/file structure
-  function recurse(node) {
-    if (Array.isArray(node)) {
-      node.forEach((item) => recurse(item));
-    } else if (typeof node === "object" && node !== null) {
-      if (node.name && regex.test(node.name)) {
-        results.push({ name: node.name, type: node.type, url: node.url || null });
+    function recurse(node) {
+      if (Array.isArray(node)) { node.forEach((item) => recurse(item)); }
+      else if (typeof node === "object" && node !== null) {
+        if (node.name && regex.test(node.name)) results.push({ name: node.name, type: node.type, url: node.url || null });
+        Object.values(node).forEach((value) => recurse(value));
       }
-      Object.values(node).forEach((value) => recurse(value));
     }
-  }
-  recurse(objValue);
+    recurse(objValue);
 
-  // Search client and project names from employee API
-  if (employeeData?.records) {
-    const clients = [...new Set(employeeData.records.map(emp =>
-      emp.employeeAllocationDataDTO?.parentAccount?.accountName
-    ).filter(Boolean))];
-    clients.forEach(clientName => {
+    if (employeeData?.records) {
+      const clients = [...new Set(employeeData.records.map(emp => emp.employeeAllocationDataDTO?.parentAccount?.accountName).filter(Boolean))];
+      clients.forEach(clientName => { if (regex.test(clientName)) results.push({ name: clientName, type: 'client' }); });
+      const projects = [...new Set(employeeData.records.map(emp => emp.employeeAllocationDataDTO?.project?.projectName).filter(Boolean))];
+      projects.forEach(projectName => { if (regex.test(projectName)) results.push({ name: projectName, type: 'project' }); });
+    }
+
+    // Fetch custom projects from server
+    let serverCustomProjects = customProjects;
+    try {
+      const res = await fetch('/api/sheet-ids');
+      const data = await res.json();
+      const tree = data['sprintHub_customTree'];
+      const parsed = typeof tree === 'string' ? JSON.parse(tree) : tree;
+      if (parsed?.customProjects) serverCustomProjects = parsed.customProjects;
+    } catch {}
+
+    Object.entries(serverCustomProjects).forEach(([clientName, projects]) => {
       if (regex.test(clientName)) results.push({ name: clientName, type: 'client' });
+      projects.forEach(projectName => {
+        if (!deletedProjects.some(d => d.toLowerCase() === projectName.toLowerCase())) {
+          if (regex.test(projectName)) results.push({ name: projectName, type: 'project' });
+        }
+      });
     });
 
-    const projects = [...new Set(employeeData.records.map(emp =>
-      emp.employeeAllocationDataDTO?.project?.projectName
-    ).filter(Boolean))];
-    projects.forEach(projectName => {
-      if (regex.test(projectName)) results.push({ name: projectName, type: 'project' });
+    Object.entries(customFiles).forEach(([projectName, files]) => {
+      files.forEach(fileName => {
+        if (regex.test(fileName)) results.push({ name: fileName, type: 'file', url: localStorage.getItem(`sprintHub_${projectName}_${fileName}`) || null });
+      });
     });
+
+    const seen = new Set();
+    results = results.filter(r => { if (seen.has(r.name)) return false; seen.add(r.name); return true; });
+    setSearchOutput(results);
   }
-
-  // Search custom clients and projects from manage section
-  Object.entries(customProjects).forEach(([clientName, projects]) => {
-    if (regex.test(clientName)) results.push({ name: clientName, type: 'client' });
-    projects.forEach(projectName => {
-      if (!deletedProjects.some(d => d.toLowerCase() === projectName.toLowerCase())) {
-        if (regex.test(projectName)) results.push({ name: projectName, type: 'project' });
-      }
-    });
-  });
-
-  // Search custom files
-  Object.entries(customFiles).forEach(([projectName, files]) => {
-    files.forEach(fileName => {
-      if (regex.test(fileName)) results.push({ name: fileName, type: 'file', url: localStorage.getItem(`sprintHub_${projectName}_${fileName}`) || null });
-    });
-  });
-
-  // Deduplicate by name
-  const seen = new Set();
-  results = results.filter(r => { if (seen.has(r.name)) return false; seen.add(r.name); return true; });
-  setSearchOutput(results);
-}
 
 
   const getProjectStats = (clientName, projectName) => {
@@ -219,6 +208,10 @@ function searchByName(searchText) {
                   fileClicked(val.url, val.name);
                 } else if (val.type === 'project') {
                   setSearchFilter({ client: null, project: val.name });
+                  // find client for this project
+                  const emp = employeeData?.records?.find(e => e.employeeAllocationDataDTO?.project?.projectName === val.name);
+                  const clientName = emp?.employeeAllocationDataDTO?.parentAccount?.accountName || null;
+                  setSelectedView({ type: 'project-plan', projectName: val.name, clientName });
                 } else if (val.type === 'client') {
                   setSearchFilter({ client: val.name, project: null });
                 }

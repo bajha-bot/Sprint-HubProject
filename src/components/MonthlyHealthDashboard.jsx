@@ -3,7 +3,12 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recha
 import { getProjectPlanSheetUrl } from '../utils/projectPlanSheetService';
 
 const HEALTH_COLORS = { green: '#22c55e', yellow: '#eab308', red: '#ef4444' };
-const API_KEY = 'AIzaSyAXU_abdTN3N-6Nv78KbQjht0QKl1xd9Eo';
+const ensureGapi = async () => {
+  if (window.gapi?.client?.sheets && window.gapi.client.getToken()) return;
+  const { initializeGoogleAPI, initializeGIS, authenticate } = await import('../utils/googleSheetsService');
+  if (!window.gapi?.client?.sheets) await Promise.all([initializeGoogleAPI(), initializeGIS()]);
+  if (!window.gapi.client.getToken()) await authenticate();
+};
 
 const POWER_BI_URLS = {
   default: 'https://app.powerbi.com/groups/me/reports/7c43af94-4751-4aa7-be8c-31ddcf2f102f/ed063bcd01028b032c80?ctid=06408ebc-5eb8-4b0d-827f-76dd3b58bc84&experience=power-bi&clientSideAuth=0',
@@ -121,14 +126,9 @@ const MonthlyHealthDashboard = ({ projectName, clientName, projectStats, clientP
             }
             const spreadsheetId = sheetUrl.split('/d/')[1]?.split('/')[0];
             try {
-              let values = null;
-              if (window.gapi?.client?.sheets && window.gapi.client.getToken()) {
-                const res = await window.gapi.client.sheets.spreadsheets.values.get({ spreadsheetId, range: 'A1:W' });
-                values = res.result.values;
-              } else {
-                const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/A1:W?key=${API_KEY}`);
-                values = (await res.json()).values;
-              }
+              await ensureGapi();
+              const gapiRes = await window.gapi.client.sheets.spreadsheets.values.get({ spreadsheetId, range: 'A1:W' });
+              let values = gapiRes.result.values;
               if (!values || values.length < 2) continue;
               const hdrs = values[0];
               if (combinedHeaders.length === 0) combinedHeaders = hdrs;
@@ -175,27 +175,9 @@ const MonthlyHealthDashboard = ({ projectName, clientName, projectStats, clientP
         if (!sheetUrl) { setLoading(false); return; }
         const spreadsheetId = sheetUrl.split('/d/')[1]?.split('/')[0];
 
-        let values = null;
-
-        // Try with OAuth token via gapi first (works for private sheets)
-        if (window.gapi?.client?.sheets && window.gapi.client.getToken()) {
-          try {
-            const res = await window.gapi.client.sheets.spreadsheets.values.get({
-              spreadsheetId,
-              range: 'A1:Q'
-            });
-            values = res.result.values;
-          } catch (gapiErr) {
-            console.warn('gapi fetch failed, falling back to API key:', gapiErr);
-          }
-        }
-
-        // Fallback to API key (works for public sheets)
-        if (!values) {
-          const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/A1:Q?key=${API_KEY}`);
-          const result = await res.json();
-          values = result.values;
-        }
+        await ensureGapi();
+        const gapiRes = await window.gapi.client.sheets.spreadsheets.values.get({ spreadsheetId, range: 'A1:W' });
+        let values = gapiRes.result.values;
 
         if (values && values.length > 0) {
           setHeaders(values[0]);

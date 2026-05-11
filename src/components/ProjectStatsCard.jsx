@@ -140,8 +140,9 @@ const ProjectStatsCard = ({ projectName, clientName }) => {
       window.open(result.sheetUrl, '_blank');
       
     } catch (error) {
-      console.error('Google Sheets API failed:', error);
-      alert('Failed to create/update Google Sheet. Please try again.');
+      console.error('Google Sheets API failed:', error?.message || error);
+      const msg = error?.result?.error?.message || error?.message || 'Unknown error';
+      alert(`Failed to create/update Google Sheet: ${msg}. Check browser console for details.`);
     }
   };
 

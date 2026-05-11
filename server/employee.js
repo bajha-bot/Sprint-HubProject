@@ -46,6 +46,9 @@ const getValidToken = () => {
 
 async function getEmployees() {
   const token = getValidToken();
+  if (!process.env.MYTEAM_API_URL || process.env.MYTEAM_API_URL === '<your_api_url_here>') {
+    throw new Error('MYTEAM_API_URL is not set in server/.env');
+  }
   const response = await axios.get(process.env.MYTEAM_API_URL, {
     headers: { AppToken: token },
     httpsAgent: agent,

@@ -44,7 +44,6 @@ export const initializeGoogleAPI = () => {
         try {
           console.log('Loading gapi client...');
           await gapi.client.init({
-            apiKey: API_KEY,
             discoveryDocs: [DISCOVERY_DOC],
           });
           gapiInited = true;
@@ -292,9 +291,10 @@ export const createOrUpdateCeipalSheet = async (data) => {
       throw new Error('Google API failed to initialize. Please refresh the page and try again.');
     }
     
-    if (gapi.client.getToken() === null) {
+    if (!gapi.client.getToken()) {
       await authenticate();
     }
+    gapi.client.setToken(gapi.client.getToken());
 
     let spreadsheetId = await getSheetIdFromServer(STATIC_CEIPAL_SHEET_ID_KEY);
     let isNewSheet = false;
@@ -563,27 +563,40 @@ export const createCeipalGoogleSheet = async (data, fileName = 'CEIPAL_Data') =>
 export const createOrUpdateAllEmployeesSheet = async (data) => {
   try {
     console.log('Creating/Updating All Employees Google Sheet with data:', data.length, 'employees');
-    
-    // Initialize APIs if not already done
-    if (!gapiInited || !gisInited) {
-      console.log('Initializing Google APIs...');
-      await Promise.all([
-        initializeGoogleAPI(),
-        initializeGIS()
-      ]);
-      console.log('APIs initialized');
+
+    const g = window.gapi;
+    if (!g) throw new Error('Google API script not loaded. Please refresh the page.');
+
+    // Init gapi client if not already done
+    if (!g.client?.sheets) {
+      await new Promise((resolve, reject) => {
+        g.load('client', async () => {
+          try {
+            await g.client.init({ discoveryDocs: [DISCOVERY_DOC] });
+            resolve();
+          } catch (e) { reject(e); }
+        });
+      });
     }
-    
-    if (!gapi || !gapi.client) {
-      throw new Error('Google API failed to initialize. Please refresh the page and try again.');
+
+    // Init GIS token client if not already done
+    if (!window.tokenClient && window.google) {
+      window.tokenClient = window.google.accounts.oauth2.initTokenClient({
+        client_id: CLIENT_ID,
+        scope: SCOPES,
+        callback: '',
+      });
     }
-    
-    console.log('Google API initialized successfully');
-    
-    // Ensure authentication
-    if (gapi.client.getToken() === null) {
-      console.log('Requesting authentication...');
-      await authenticate();
+
+    // Authenticate if no token
+    if (!g.client.getToken()) {
+      await new Promise((resolve, reject) => {
+        window.tokenClient.callback = (resp) => {
+          if (resp.error) reject(new Error(resp.error));
+          else resolve(resp);
+        };
+        window.tokenClient.requestAccessToken({ prompt: 'consent' });
+      });
     }
 
     // Check if we have an existing sheet ID
@@ -591,29 +604,19 @@ export const createOrUpdateAllEmployeesSheet = async (data) => {
     let isNewSheet = false;
 
     if (!spreadsheetId) {
-      // Create new spreadsheet
-      const createResponse = await gapi.client.sheets.spreadsheets.create({
-        properties: {
-          title: 'SprintHub_All_Employees_Data'
-        }
+      const createResponse = await g.client.sheets.spreadsheets.create({
+        properties: { title: 'SprintHub_All_Employees_Data' }
       });
-
       spreadsheetId = createResponse.result.spreadsheetId;
       await saveSheetIdToServer(STATIC_SHEET_ID_KEY, spreadsheetId);
       isNewSheet = true;
       console.log('Created new spreadsheet:', spreadsheetId);
-
-      // Set sharing permissions - anyone with link can view
       try {
-        await gapi.client.request({
+        await g.client.request({
           path: `https://www.googleapis.com/drive/v3/files/${spreadsheetId}/permissions`,
           method: 'POST',
-          body: {
-            role: 'reader',
-            type: 'anyone'
-          }
+          body: { role: 'reader', type: 'anyone' }
         });
-        console.log('Sheet set to public (anyone with link can view)');
       } catch (permError) {
         console.warn('Could not set public permissions:', permError);
       }
@@ -621,23 +624,12 @@ export const createOrUpdateAllEmployeesSheet = async (data) => {
       console.log('Using existing spreadsheet:', spreadsheetId);
     }
 
-    // Prepare data - headers
     const headers = [
-      'Employee ID',
-      'Employee Name', 
-      'Email',
-      'Designation',
-      'Location',
-      'Allocation Status',
-      'Employment Type',
-      'Date of Joining',
-      'Experience',
-      'Skills',
-      'Project Name',
-      'Client Name'
+      'Employee ID', 'Employee Name', 'Email', 'Designation', 'Location',
+      'Allocation Status', 'Employment Type', 'Date of Joining', 'Experience',
+      'Skills', 'Project Name', 'Client Name'
     ];
 
-    // Prepare data rows
     const rows = data.map(emp => [
       emp.employeeId || '',
       emp.employeeName || '',
@@ -653,49 +645,50 @@ export const createOrUpdateAllEmployeesSheet = async (data) => {
       emp.employeeAllocationDataDTO?.parentAccount?.accountName || ''
     ]);
 
-    const sheetData = [headers, ...rows];
-    console.log('Sheet data prepared:', sheetData.length, 'rows');
-
-    // Clear existing data and add new data
-    await gapi.client.sheets.spreadsheets.values.clear({
-      spreadsheetId: spreadsheetId,
-      range: 'Sheet1!A1:Z'
-    });
-
-    // Add data to spreadsheet
-    await gapi.client.sheets.spreadsheets.values.update({
-      spreadsheetId: spreadsheetId,
-      range: 'A1',
-      valueInputOption: 'RAW',
-      resource: {
-        values: sheetData
-      }
-    });
-
-    console.log('Data added successfully');
-
-    // Format header row
-    await gapi.client.sheets.spreadsheets.batchUpdate({
-      spreadsheetId: spreadsheetId,
-      resource: {
-        requests: [{
-          repeatCell: {
-            range: {
-              sheetId: 0,
-              startRowIndex: 0,
-              endRowIndex: 1
-            },
-            cell: {
-              userEnteredFormat: {
-                backgroundColor: { red: 0.9, green: 0.9, blue: 0.9 },
-                textFormat: { bold: true }
-              }
-            },
+    // Try clear+write; if 403 (sheet owned by different account), create a fresh one
+    const writeToSheet = async (id) => {
+      await g.client.sheets.spreadsheets.values.clear({ spreadsheetId: id, range: 'Sheet1!A1:Z' });
+      await g.client.sheets.spreadsheets.values.update({
+        spreadsheetId: id, range: 'A1', valueInputOption: 'RAW',
+        resource: { values: [headers, ...rows] }
+      });
+      await g.client.sheets.spreadsheets.batchUpdate({
+        spreadsheetId: id,
+        resource: {
+          requests: [{ repeatCell: {
+            range: { sheetId: 0, startRowIndex: 0, endRowIndex: 1 },
+            cell: { userEnteredFormat: { backgroundColor: { red: 0.9, green: 0.9, blue: 0.9 }, textFormat: { bold: true } } },
             fields: 'userEnteredFormat(backgroundColor,textFormat)'
-          }
-        }]
+          }}]
+        }
+      });
+    };
+
+    try {
+      await writeToSheet(spreadsheetId);
+    } catch (writeErr) {
+      const status = writeErr?.status || writeErr?.result?.error?.code;
+      if (status === 403 && !isNewSheet) {
+        // Stored sheet belongs to a different Google account — create a new one
+        console.warn('403 on existing sheet, creating new one for current account...');
+        const createResponse = await g.client.sheets.spreadsheets.create({
+          properties: { title: 'SprintHub_All_Employees_Data' }
+        });
+        spreadsheetId = createResponse.result.spreadsheetId;
+        await saveSheetIdToServer(STATIC_SHEET_ID_KEY, spreadsheetId);
+        isNewSheet = true;
+        try {
+          await g.client.request({
+            path: `https://www.googleapis.com/drive/v3/files/${spreadsheetId}/permissions`,
+            method: 'POST',
+            body: { role: 'reader', type: 'anyone' }
+          });
+        } catch (_) {}
+        await writeToSheet(spreadsheetId);
+      } else {
+        throw writeErr;
       }
-    });
+    }
 
     const sheetUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}`;
     console.log('Google Sheet updated successfully:', sheetUrl);
@@ -703,6 +696,7 @@ export const createOrUpdateAllEmployeesSheet = async (data) => {
 
   } catch (error) {
     console.error('Error creating/updating Google Sheet:', error);
-    throw error;
+    const msg = error?.result?.error?.message || error?.message || String(error);
+    throw new Error(msg);
   }
 };

@@ -29,11 +29,11 @@ const setCachedEmployees = (normalized) => {
   } catch {}
 };
 
-const buildUser = (record) => ({
+const buildUser = (record, adminEmails = []) => ({
   employeeId: record.employeeId,
   name: record.employeeName,
   email: record.emailId,
-  role: record.role,
+  role: adminEmails.includes(record.emailId) ? 'Admin' : record.role,
   designation: record.designation,
   accountId: record.employeeAllocationDataDTO?.parentAccount?.accountId,
   accountName: record.employeeAllocationDataDTO?.parentAccount?.accountName,
@@ -41,6 +41,14 @@ const buildUser = (record) => ({
   projectName: record.employeeAllocationDataDTO?.project?.projectName,
   domainName: record.employeeAllocationDataDTO?.domain?.[0]?.domainName,
 });
+
+const fetchAdminEmails = async () => {
+  try {
+    const res = await fetch('/api/admin-emails');
+    const data = await res.json();
+    return data.adminEmails || [];
+  } catch { return []; }
+};
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -52,11 +60,13 @@ export const AuthProvider = ({ children }) => {
       const userEmail = localStorage.getItem('userEmail');
       if (!userEmail) { setLoading(false); return; }
 
+      const adminEmails = await fetchAdminEmails();
+
       const cached = getCachedEmployees();
       if (cached?.records) {
         setAllEmployees(cached.records);
         const found = cached.records.find(emp => emp.emailId === userEmail);
-        if (found) { setUser(buildUser(found)); setLoading(false); return; }
+        if (found) { setUser(buildUser(found, adminEmails)); setLoading(false); return; }
       }
 
       setTempToken();
@@ -67,7 +77,7 @@ export const AuthProvider = ({ children }) => {
       setCachedEmployees(normalized);
       setAllEmployees(normalized.records || []);
       const found = normalized.records?.find(emp => emp.emailId === userEmail);
-      if (found) setUser(buildUser(found));
+      if (found) setUser(buildUser(found, adminEmails));
     } catch (error) {
       console.error('Failed to fetch user data:', error);
       const cached = getCachedEmployees();
@@ -75,7 +85,7 @@ export const AuthProvider = ({ children }) => {
         const userEmail = localStorage.getItem('userEmail');
         setAllEmployees(cached.records);
         const found = cached.records.find(emp => emp.emailId === userEmail);
-        if (found) setUser(buildUser(found));
+        if (found) setUser(buildUser(found, []));
       }
     } finally {
       setLoading(false);

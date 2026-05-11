@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { canAccessClient, canAccessProject, filterEmployeesByRole } from '../utils/roleBasedAccess';
+import { canAccessClient, canAccessProject, filterEmployeesByRole, isFullAccessRole } from '../utils/roleBasedAccess';
 import { CLIENT_SHEETS } from '../constants/roles';
 import { useNavigate } from 'react-router-dom';
 import './EmployeeStatsCard.css';
@@ -20,7 +20,8 @@ const RoleBasedClientBrowser = () => {
     navigate('/role-based-login');
   };
 
-  const employees = filterEmployeesByRole(user, allEmployees);
+  // Admin/CDH must use allEmployees directly — their own record may have no accountName
+  const employees = isFullAccessRole(user) ? allEmployees : filterEmployeesByRole(user, allEmployees);
 
   const handleClientToggle = (clientName) => {
     const sheetUrl = CLIENT_SHEETS[clientName];
@@ -52,6 +53,9 @@ const RoleBasedClientBrowser = () => {
     navigate('/role-based-login');
     return null;
   }
+
+  // Temporary: remove after confirming role value
+  console.log('[RoleCheck] user.role:', user.role, '| allEmployees count:', allEmployees.length);
 
   const clientsMap = new Map();
   employees.forEach(emp => {

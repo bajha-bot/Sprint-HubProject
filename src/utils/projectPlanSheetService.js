@@ -23,7 +23,7 @@ const serverSet = async (key, value) => {
       body: JSON.stringify({ [key]: value })
     });
     const result = await res.json();
-    console.log('[serverSet] key:', key, 'response:', result);
+    // console.log('[serverSet] key:', key, 'response:', result);
     localStorage.setItem(key, value);
   } catch (e) {
     console.warn('[serverSet] fetch failed, saving to localStorage only:', e.message);
@@ -101,7 +101,7 @@ export const storeProjectPlanSheet = async (projectName, sheetUrl, spreadsheetId
   const value = JSON.stringify(sheets);
   localStorage.setItem(PROJECT_PLAN_SHEETS_KEY, value);
   await serverSet(PROJECT_PLAN_SHEETS_KEY, value);
-  console.log('[storeProjectPlanSheet] saved:', cleanName, resolvedId);
+  // console.log('[storeProjectPlanSheet] saved:', cleanName, resolvedId);
 };
 
 export const deleteProjectPlanSheet = async (projectName) => {
@@ -128,7 +128,7 @@ export const getConsolidatedSheetUrl = async () => {
 
 export const getConsolidatedSheetId = async () => {
   const stored = await serverGet(CONSOLIDATED_SHEET_KEY);
-  console.log('[getConsolidatedSheetId] raw stored value:', stored);
+  // console.log('[getConsolidatedSheetId] raw stored value:', stored);
   if (!stored) return null;
   const parsed = typeof stored === 'string' ? JSON.parse(stored) : stored;
   return parsed.spreadsheetId;
@@ -187,22 +187,24 @@ export const syncConsolidatedSheet = async (deletedProjects = []) => {
   const validEntries = Object.entries(allSheets).filter(([projectName, sheetData]) => {
     if (deletedProjects.some(d => d.toLowerCase() === projectName.toLowerCase())) return false;
     const id = sheetData.spreadsheetId || sheetData.sheetUrl?.split('/d/')[1]?.split('/')[0];
-    return id && id !== 'null';
+    return id && id !== 'null' && id !== 'undefined';
   });
 
-  const results = await Promise.allSettled(
-    validEntries.map(([projectName, sheetData]) => {
-      const spreadsheetId = sheetData.spreadsheetId || sheetData.sheetUrl?.split('/d/')[1]?.split('/')[0];
-      return fetchSheetWithRetry(gapi, spreadsheetId, 'A2:W')
-        .then(values => values.filter(row => row.some(cell => cell?.toString().trim())));
-    })
-  );
-
-  const allRows = results.flatMap((r, i) => {
-    if (r.status === 'fulfilled') return r.value;
-    console.warn(`[Sync] Failed to read ${validEntries[i][0]}:`, r.reason?.result?.error?.message || r.reason);
-    return [];
-  });
+  const allRows = [];
+  for (const [projectName, sheetData] of validEntries) {
+    const spreadsheetId = sheetData.spreadsheetId || sheetData.sheetUrl?.split('/d/')[1]?.split('/')[0];
+    if (!spreadsheetId || spreadsheetId === 'null') {
+      console.warn(`[Sync] Skipping ${projectName}: no valid spreadsheetId`);
+      continue;
+    }
+    try {
+      const values = await fetchSheetWithRetry(gapi, spreadsheetId, 'A2:W');
+      allRows.push(...values.filter(row => row.some(cell => cell?.toString().trim())));
+    } catch (e) {
+      console.warn(`[Sync] Failed to read ${projectName}:`, e?.result?.error?.message || e);
+    }
+    await sleep(300);
+  }
 
   console.log('[Sync] Total rows to write:', allRows.length);
 

@@ -50,6 +50,30 @@ router.put("/storage/:key", (req, res) => {
   res.json({ success: true });
 });
 
+router.get("/admin-emails", (req, res) => {
+  const data = readSheetIds();
+  res.json({ adminEmails: data.sprintHub_admin_emails || [] });
+});
+
+router.post("/admin-emails", (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ error: 'email required' });
+  const current = readSheetIds();
+  const list = current.sprintHub_admin_emails || [];
+  if (!list.includes(email)) list.push(email);
+  current.sprintHub_admin_emails = list;
+  writeSheetIds(current);
+  res.json({ success: true, adminEmails: list });
+});
+
+router.delete("/admin-emails", (req, res) => {
+  const { email } = req.body;
+  const current = readSheetIds();
+  current.sprintHub_admin_emails = (current.sprintHub_admin_emails || []).filter(e => e !== email);
+  writeSheetIds(current);
+  res.json({ success: true, adminEmails: current.sprintHub_admin_emails });
+});
+
 router.get("/employees", async (req, res) => {
   try {
     const data = await getEmployees();

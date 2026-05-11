@@ -12,7 +12,6 @@ export const initializeGoogleAPI = async () => {
       gapi.load('client', async () => {
         try {
           await gapi.client.init({
-            apiKey: GOOGLE_SHEETS_API_KEY,
             discoveryDocs: [DISCOVERY_DOC],
           });
           resolve(true);

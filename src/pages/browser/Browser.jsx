@@ -4,6 +4,7 @@ import ContentSection1 from "../../components/browser/contentSection/ContentSect
 import ClientProjectTree from "../../components/ClientProjectTree";
 import ProjectPlanSheetNew from "../../components/ProjectPlanSheetNew";
 import ProjectTeamSheetNew from "../../components/ProjectTeamSheetNew";
+import RaidLogSheetNew from "../../components/RaidLogSheetNew";
 import AllProjectsSheet from "../../components/AllProjectsSheet";
 import GoogleSheetSetupGuide from "../../components/GoogleSheetSetupGuide";
 import MonthlyHealthDashboard from "../../components/MonthlyHealthDashboard";
@@ -74,6 +75,14 @@ function Browser() {
     dispatch(changeBreadcrumb(`${projectName} - Monthly Health Dashboard`));
   };
 
+  const handleRaidLogClick = (clientName, projectName) => {
+    setSelectedProject(projectName);
+    setSelectedClient(clientName);
+    setActiveTab('browser');
+    dispatch(openFileLink('raid-log'));
+    dispatch(changeBreadcrumb(`${projectName} - RAID Log`));
+  };
+
   const handleAccountDashboard = (clientName, clientProjects) => {
     setSelectedClient(clientName);
     setSelectedProject(null);
@@ -127,7 +136,7 @@ function Browser() {
             </button> */}
           </div>
         </div>
-        <ClientProjectTree showActions={true} user={user} onProjectTeamClick={handleProjectTeamClick} onProjectPlanClick={handleProjectPlanClick} onProjectDashboardClick={handleProjectDashboard} onAccountDashboardClick={handleAccountDashboard} />
+        <ClientProjectTree showActions={true} user={user} onProjectTeamClick={handleProjectTeamClick} onProjectPlanClick={handleProjectPlanClick} onProjectDashboardClick={handleProjectDashboard} onAccountDashboardClick={handleAccountDashboard} onRaidLogClick={handleRaidLogClick} />
         <div style={{ marginTop: "1rem" }}>
           {/* Project Dashboard links will be handled by ClientProjectTree */}
         </div>
@@ -151,6 +160,7 @@ function Browser() {
             projectStats={getProjectStats(selectedClient, selectedProject)}
             onProjectPlan={() => { dispatch(openFileLink('project-plan')); dispatch(changeBreadcrumb(`${selectedProject} - Project Plan`)); }}
             onProjectTeam={() => { dispatch(openFileLink('project-team')); dispatch(changeBreadcrumb(`${selectedProject} - Project Team`)); }}
+            onRaidLog={() => handleRaidLogClick(selectedClient, selectedProject)}
             onAccountDashboard={() => handleAccountDashboard(selectedClient, [])}
           />
         </div>
@@ -161,6 +171,8 @@ function Browser() {
           projectName={selectedProject}
           clientName={selectedClient}
         />
+      ) : selectedFileUrl === 'raid-log' && selectedProject ? (
+        <RaidLogSheetNew projectName={selectedProject} clientName={selectedClient} />
       ) : selectedFileUrl === 'sheet-setup' ? (
         <GoogleSheetSetupGuide />
       ) : (

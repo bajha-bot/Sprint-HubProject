@@ -346,10 +346,10 @@ const quickLinks = [
   { label: "Project Plan", icon: "bi-journal-text", color: "#3f5de8" },
   { label: "Project Team", icon: "bi-people-fill", color: "#3f5de8" },
   { label: "RAID Log", icon: "bi-exclamation-triangle-fill", color: "#f5a623" },
-  { label: "Project Toolkits", icon: "bi-tools", color: "#5a6382" },
-  { label: "Project Intake", icon: "bi-inbox-fill", color: "#3f5de8" },
-  { label: "Portfolio Summary Roll-up", icon: "bi-bar-chart-fill", color: "#f5a623" },
-  { label: "Missing source", icon: "bi-question-circle-fill", color: "#22c55e" },
+  // { label: "Project Toolkits", icon: "bi-tools", color: "#5a6382" },
+  // { label: "Project Intake", icon: "bi-inbox-fill", color: "#3f5de8" },
+  // { label: "Portfolio Summary Roll-up", icon: "bi-bar-chart-fill", color: "#f5a623" },
+  // { label: "Missing source", icon: "bi-question-circle-fill", color: "#22c55e" },
 ];
  
 function ProgressRing({ pct }) {
@@ -376,7 +376,7 @@ function ProgressRing({ pct }) {
 
 
 
-export default function ProjectShowDashboard({ projectName, clientName, projectStats, onProjectPlan, onProjectTeam, onAccountDashboard }) {
+export default function ProjectShowDashboard({ projectName, clientName, projectStats, onProjectPlan, onProjectTeam, onRaidLog, onAccountDashboard }) {
   const [health, setHealth] = useState('red');
   const [completePct, setCompletePct] = useState(0);
   const [projectOwner, setProjectOwner] = useState('-');
@@ -575,7 +575,7 @@ export default function ProjectShowDashboard({ projectName, clientName, projectS
             </div>
  
             {/* Updates placeholder */}
-            <div className="updates-card">
+            {/* <div className="updates-card">
               <div className="updates-icon">
                 <i className="bi bi-file-earmark-x-fill" />
               </div>
@@ -590,7 +590,7 @@ export default function ProjectShowDashboard({ projectName, clientName, projectS
                 <i className="bi bi-person-gear me-1" />
                 Contact Admin
               </button>
-            </div>
+            </div> */}
           </div>
  
           {/* Right: Quick Links */}
@@ -606,6 +606,7 @@ export default function ProjectShowDashboard({ projectName, clientName, projectS
                     e.preventDefault();
                     if (link.label === 'Project Plan') onProjectPlan?.();
                     else if (link.label === 'Project Team') onProjectTeam?.();
+                    else if (link.label === 'RAID Log') onRaidLog?.();
                     else if (link.label === 'Portfolio Summary Roll-up') onAccountDashboard?.();
                   }}>
                     <i className={`${link.icon}`} style={{ color: link.color }} />
@@ -616,7 +617,7 @@ export default function ProjectShowDashboard({ projectName, clientName, projectS
               </div>
  
               {/* Mini status summary */}
-              <div className="quick-links-card mt-3">
+              {/* <div className="quick-links-card mt-3">
                 <div className="quick-links-header">
                   <i className="bi bi-activity me-1" />
                   Status Summary
@@ -645,7 +646,7 @@ export default function ProjectShowDashboard({ projectName, clientName, projectS
                     </div>
                   ))}
                 </div>
-              </div>
+              </div> */}
             </div>
           </div>
         </div>

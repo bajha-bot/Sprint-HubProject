@@ -6,6 +6,7 @@ import {
   renameFile, deleteFile,
 } from '../features/clientProjectTreeSlice';
 import { storeProjectPlanSheet } from '../utils/projectPlanSheetService';
+import { storeRaidLogSheet } from '../utils/raidLogSheetService';
 import { updateFileLinkByName } from '../features/createFolderFilesSlice';
 import { canAccessClient, canAccessProject } from '../utils/roleBasedAccess';
 import useGetAllEmployees from '../hooks/useGetAllEmployees';
@@ -18,7 +19,7 @@ import DeleteImg from '/deleteImg.webp';
 import RenameImg from '/rename.webp';
 import AddUser from '/adduser.webp';
 
-const DEFAULT_FILES = ['Project Team', 'Project Plan', 'Project Dashboard'];
+const DEFAULT_FILES = ['Project Team', 'Project Plan', 'RAID Log', 'Project Dashboard'];
 const isAdmin = (user) => user?.role === 'Admin' || user?.designation?.toLowerCase().includes('admin');
 
 const ManageClientProjectTree = ({ user }) => {
@@ -36,6 +37,9 @@ const ManageClientProjectTree = ({ user }) => {
       if (fileName === 'Project Plan') {
         storeProjectPlanSheet(projectName, newUrl, null);
         dispatch(updateFileLinkByName({ projectName, url: newUrl }));
+      }
+      if (fileName === 'RAID Log') {
+        storeRaidLogSheet(projectName, newUrl, null);
       }
     }
   };

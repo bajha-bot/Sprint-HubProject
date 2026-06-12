@@ -6,6 +6,7 @@ import MonthlyHealthDashboard from "../../components/MonthlyHealthDashboard";
 import ProjectShowDashboard from "../../components/ProjectShowdashboard";
 import ProjectPlanSheetNew from "../../components/ProjectPlanSheetNew";
 import ProjectTeamSheetNew from "../../components/ProjectTeamSheetNew";
+import RaidLogSheetNew from "../../components/RaidLogSheetNew";
 import { useSelector, useDispatch } from "react-redux";
 import { openFileLink } from "../../features/openFileSlice";
 import { changeBreadcrumb } from "../../features/breadcrumbSlice";
@@ -93,6 +94,13 @@ function Browse() {
     dispatch(changeBreadcrumb(`${projectName} - Project Team`));
   };
 
+  const handleRaidLogClick = (clientName, projectName) => {
+    setSelectedProject(projectName);
+    setSelectedClient(clientName);
+    dispatch(openFileLink('raid-log'));
+    dispatch(changeBreadcrumb(`${projectName} - RAID Log`));
+  };
+
   const handleAccountDashboard = (clientName, clientProjects) => {
     setSelectedClient(clientName);
     setSelectedProject(null);
@@ -126,6 +134,7 @@ function Browse() {
           onProjectPlanClick={handleProjectPlanClick}
           onProjectDashboardClick={handleProjectDashboard}
           onAccountDashboardClick={handleAccountDashboard}
+          onRaidLogClick={handleRaidLogClick}
           filterClient={searchClient}
           filterProject={searchProject}
         />
@@ -147,6 +156,7 @@ function Browse() {
             projectStats={getProjectStats(selectedClient, selectedProject)}
             onProjectPlan={() => handleProjectPlanClick(selectedClient, selectedProject)}
             onProjectTeam={() => handleProjectTeamClick(selectedClient, selectedProject)}
+            onRaidLog={() => handleRaidLogClick(selectedClient, selectedProject)}
             onAccountDashboard={() => handleAccountDashboard(selectedClient, [])}
           />
         </div>
@@ -154,6 +164,8 @@ function Browse() {
         <ProjectPlanSheetNew projectName={selectedProject} readOnly={true} />
       ) : selectedFileUrl === 'project-team' && selectedProject ? (
         <ProjectTeamSheetNew projectName={selectedProject} readOnly={true} />
+      ) : selectedFileUrl === 'raid-log' && selectedProject ? (
+        <RaidLogSheetNew projectName={selectedProject} clientName={selectedClient} readOnly={true} />
       ) : (
         <ContentSection selectedFileUrl={selectedFileUrl} />
       )}

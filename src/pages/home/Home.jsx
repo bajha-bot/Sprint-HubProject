@@ -20,6 +20,7 @@ import MonthlyHealthDashboard from "../../components/MonthlyHealthDashboard";
 import ProjectShowDashboard from "../../components/ProjectShowdashboard";
 import ProjectPlanSheetNew from "../../components/ProjectPlanSheetNew";
 import ProjectTeamSheetNew from "../../components/ProjectTeamSheetNew";
+import RaidLogSheetNew from "../../components/RaidLogSheetNew";
 import { useAuth } from "../../context/AuthContext";
 
 function Home() {
@@ -280,6 +281,7 @@ function Home() {
           onProjectTeamClick={(clientName, projectName) => setSelectedView({ type: 'project-team', projectName, clientName })}
           onProjectDashboardClick={(clientName, projectName) => setSelectedView({ type: 'project-dashboard', projectName, clientName })}
           onAccountDashboardClick={(clientName, clientProjects) => setSelectedView({ type: 'account-dashboard', clientName, clientProjects })}
+          onRaidLogClick={(clientName, projectName) => setSelectedView({ type: 'raid-log', projectName, clientName })}
         />
 
         {/* Render selected view inline */}
@@ -290,6 +292,7 @@ function Home() {
                 {selectedView.type === 'account-dashboard' ? `📊 ${selectedView.clientName} - Account Dashboard` :
                  selectedView.type === 'project-dashboard' ? `📊 ${selectedView.projectName} - Project Dashboard` :
                  selectedView.type === 'project-plan' ? `📋 ${selectedView.projectName} - Project Plan` :
+                 selectedView.type === 'raid-log' ? `⚠️ ${selectedView.projectName} - RAID Log` :
                  `👥 ${selectedView.projectName} - Project Team`}
               </span>
               <button onClick={() => setSelectedView(null)} style={{ background: '#ef4444', color: '#fff', border: 'none', borderRadius: '4px', padding: '4px 12px', cursor: 'pointer', fontSize: '13px' }}>← Back</button>
@@ -301,6 +304,7 @@ function Home() {
               <ProjectShowDashboard projectName={selectedView.projectName} clientName={selectedView.clientName} projectStats={getProjectStats(selectedView.clientName, selectedView.projectName)}
                 onProjectPlan={() => setSelectedView({ type: 'project-plan', projectName: selectedView.projectName, clientName: selectedView.clientName })}
                 onProjectTeam={() => setSelectedView({ type: 'project-team', projectName: selectedView.projectName, clientName: selectedView.clientName })}
+                onRaidLog={() => setSelectedView({ type: 'raid-log', projectName: selectedView.projectName, clientName: selectedView.clientName })}
                 onAccountDashboard={() => setSelectedView({ type: 'account-dashboard', clientName: selectedView.clientName, clientProjects: [] })}
               />
             )}
@@ -309,6 +313,9 @@ function Home() {
             )}
             {selectedView.type === 'project-team' && (
               <ProjectTeamSheetNew projectName={selectedView.projectName} readOnly={true} />
+            )}
+            {selectedView.type === 'raid-log' && (
+              <RaidLogSheetNew projectName={selectedView.projectName} clientName={selectedView.clientName} readOnly={true} />
             )}
           </div>
         )}

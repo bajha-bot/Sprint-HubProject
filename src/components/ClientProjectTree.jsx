@@ -10,7 +10,7 @@ import useGetAllEmployees from '../hooks/useGetAllEmployees';
 import folderImg from '/folder.webp';
 import fileImg from '/file.webp';
 
-const ClientProjectTree = ({ onProjectTeamClick, onProjectPlanClick, onProjectDashboardClick, onAccountDashboardClick, showActions = true, user, filterClient, filterProject }) => {
+const ClientProjectTree = ({ onProjectTeamClick, onProjectPlanClick, onProjectDashboardClick, onAccountDashboardClick, onRaidLogClick, showActions = true, user, filterClient, filterProject }) => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { data: employeeData } = useGetAllEmployees();
@@ -157,13 +157,14 @@ const ClientProjectTree = ({ onProjectTeamClick, onProjectPlanClick, onProjectDa
                           </div>
                           {openedProjects.includes(projectName) && (
                             <div style={{ marginLeft: '1.5rem' }}>
-                              {['Project Team', 'Project Plan', 'Project Dashboard', ...(customFiles[projectName] || [])].map(fileName => (
+                              {['Project Team', 'Project Plan', 'RAID Log', 'Project Dashboard', ...(customFiles[projectName] || [])].map(fileName => (
                                 <div
                                   key={fileName}
                                   style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', marginBottom: '0.2rem' }}
                                   onClick={() => {
                                     if (fileName === 'Project Team') onProjectTeamClick?.(clientName, projectName);
                                     else if (fileName === 'Project Plan') onProjectPlanClick?.(clientName, projectName);
+                                    else if (fileName === 'RAID Log') onRaidLogClick?.(clientName, projectName);
                                     else if (fileName === 'Project Dashboard') onProjectDashboardClick ? onProjectDashboardClick(clientName, projectName) : handleFileClick(clientName, projectName, fileName, 'Project Dashboard14');
                                     else handleFileClick(clientName, projectName, fileName, fileName);
                                   }}

@@ -17,6 +17,8 @@ const RaidLogSheetNew = ({ projectName, clientName, readOnly = false }) => {
   const [isNew, setIsNew] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [consolidatedUrl, setConsolidatedUrl] = useState(null);
+  const syncKey = `sprintHub_raidSync_${projectName}`;
+  const [lastSynced, setLastSynced] = useState(() => localStorage.getItem(`sprintHub_raidSync_${projectName}`) || '');
   const dispatch = useDispatch();
 
   useEffect(() => {
@@ -27,6 +29,9 @@ const RaidLogSheetNew = ({ projectName, clientName, readOnly = false }) => {
     try {
       setSyncing(true);
       await syncRaidConsolidatedSheet();
+      const timestamp = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+      localStorage.setItem(syncKey, timestamp);
+      setLastSynced(timestamp);
       alert('✅ RAID Log consolidated sheet updated successfully!');
     } catch (err) {
       alert('Sync failed: ' + err.message);
@@ -119,15 +124,19 @@ const RaidLogSheetNew = ({ projectName, clientName, readOnly = false }) => {
   return (
     <div style={{ width: '100%', height: '100vh', display: 'flex', flexDirection: 'column' }}>
       <div style={{ padding: '15px', backgroundColor: '#f5f5f5', borderBottom: '1px solid #ddd', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h3 style={{ margin: 0 }}>{projectName} - RAID Log</h3>
+        <div>
+          <h3 style={{ margin: 0 }}>{projectName} - RAID Log Template</h3>
+          <h5 style={{ margin: '4px 0 0 0', color: "#666", fontWeight: '600', fontSize: '14px',fontStyle: "italic" }}>(Track major project risks, assumptions, issues and dependencies)</h5>
+        </div>
         {!readOnly && (
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <button onClick={handleSync} disabled={syncing}
-                style={{ padding: '8px 16px', backgroundColor: '#17a2b8', color: 'white', border: 'none', borderRadius: '4px', fontSize: '14px', cursor: syncing ? 'not-allowed' : 'pointer' }}>
-                {syncing ? 'Syncing...' : '🔄 Sync to Consolidated'}
-              </button>
-            </div>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            {lastSynced && (
+              <span style={{ fontSize: '11px', color: '#6b7280', whiteSpace: 'nowrap' }}>Last updated: {lastSynced}</span>
+            )}
+            <button onClick={handleSync} disabled={syncing}
+              style={{ padding: '8px 16px', backgroundColor: '#17a2b8', color: 'white', border: 'none', borderRadius: '4px', fontSize: '14px', cursor: syncing ? 'not-allowed' : 'pointer' }}>
+              {syncing ? 'Syncing...' : '🔄 Sync to Consolidated'}
+            </button>
             {consolidatedUrl && (
               <a href={consolidatedUrl} target="_blank" rel="noopener noreferrer"
                 style={{ padding: '8px 16px', backgroundColor: '#28a745', color: 'white', textDecoration: 'none', borderRadius: '4px', fontSize: '14px' }}>

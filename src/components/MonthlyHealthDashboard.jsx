@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { getProjectPlanSheetUrl } from '../utils/projectPlanSheetService';
 
-const HEALTH_COLORS = { green: '#22c55e', yellow: '#eab308', red: '#ef4444' };
+const HEALTH_COLORS = { green: '#22c55e', amber: '#f59e0b', red: '#ef4444' };
 const ensureGapi = async () => {
   if (window.gapi?.client?.sheets && window.gapi.client.getToken()) return;
   const { initializeGoogleAPI, initializeGIS, authenticate } = await import('../utils/googleSheetsService');
@@ -88,9 +88,9 @@ function CustomBarChart({ data }) {
             );
           }}
         />
-        <Bar dataKey="onTrack" stackId="a" fill="#22c55e" name="Green" />
-        <Bar dataKey="atRisk" stackId="a" fill="#eab308" name="Yellow" />
         <Bar dataKey="blocked" stackId="a" fill="#ef4444" name="Red" />
+        <Bar dataKey="atRisk" stackId="a" fill="#f59e0b" name="Amber" />
+        <Bar dataKey="onTrack" stackId="a" fill="#22c55e" name="Green" />
       </BarChart>
     </ResponsiveContainer>
   );
@@ -103,6 +103,30 @@ const MonthlyHealthDashboard = ({ projectName, clientName, projectStats, clientP
   const [clientBarData, setClientBarData] = useState([]);
   const [powerBiUrl, setPowerBiUrl] = useState(null);
   const [showPowerBi, setShowPowerBi] = useState(false);
+  const [selectedProjects, setSelectedProjects] = useState(null);
+  const [projectSearch, setProjectSearch] = useState('');
+  const [growthNote, setGrowthNote] = useState(() => {
+    const key = `sprintHub_growth_${clientName}_${projectName || 'client'}`;
+    return JSON.parse(localStorage.getItem(key) || 'null') || { tag: 'Hiring', text: '', updatedAt: '' };
+  });
+  const [editingGrowth, setEditingGrowth] = useState(false);
+  const focusKey = `sprintHub_focus_${clientName}_${projectName || 'client'}`;
+  const [focusItems, setFocusItems] = useState(() => JSON.parse(localStorage.getItem(`sprintHub_focus_${clientName}_${projectName || 'client'}`) || '[]'));
+  const [focusFilter, setFocusFilter] = useState('All');
+  const [showAddFocus, setShowAddFocus] = useState(false);
+  const [newFocus, setNewFocus] = useState({ title: '', desc: '', status: 'In Progress', link: '' });
+
+  // Reset state when client changes
+  useEffect(() => {
+    setClientBarData([]);
+    setSelectedProjects(new Set());
+    setSheetData([]);
+    setHeaders([]);
+    const gKey = `sprintHub_growth_${clientName}_${projectName || 'client'}`;
+    setGrowthNote(JSON.parse(localStorage.getItem(gKey) || 'null') || { tag: 'Hiring', text: '', updatedAt: '' });
+    const fKey = `sprintHub_focus_${clientName}_${projectName || 'client'}`;
+    setFocusItems(JSON.parse(localStorage.getItem(fKey) || '[]'));
+  }, [clientName, projectName]);
 
   useEffect(() => {
     const fetchSheet = async () => {
@@ -112,58 +136,44 @@ const MonthlyHealthDashboard = ({ projectName, clientName, projectStats, clientP
         if (!projectName && clientProjects?.length > 0) {
           const { getStoredProjectPlanSheets } = await import('../utils/projectPlanSheetService');
           const allSheets = await getStoredProjectPlanSheets();
-          console.log('clientProjects:', clientProjects);
-          console.log('allSheets keys:', Object.keys(allSheets));
-          const results = [];
-          let combinedHeaders = [];
-          const combinedRows = [];
-          for (const proj of clientProjects) {
+          await ensureGapi();
+
+          const fetchProject = async (proj) => {
             const sheetUrl = allSheets[proj]?.sheetUrl;
-            if (!sheetUrl) {
-              // Project has no sheet yet — still show it in bar chart with 0
-              results.push({ name: proj, onTrack: 0, atRisk: 0, blocked: 0 });
-              continue;
-            }
+            if (!sheetUrl) return { bar: { name: proj, onTrack: 0, atRisk: 0, blocked: 0 }, row: null, hdrs: null };
             const spreadsheetId = sheetUrl.split('/d/')[1]?.split('/')[0];
             try {
-              await ensureGapi();
-              const gapiRes = await window.gapi.client.sheets.spreadsheets.values.get({ spreadsheetId, range: 'A1:W' });
-              let values = gapiRes.result.values;
-              if (!values || values.length < 2) continue;
+              const gapiRes = await window.gapi.client.sheets.spreadsheets.values.get({ spreadsheetId, range: 'A1:X' });
+              const values = gapiRes.result.values;
+              if (!values || values.length < 2) return { bar: { name: proj, onTrack: 0, atRisk: 0, blocked: 0 }, row: null, hdrs: null };
               const hdrs = values[0];
-              if (combinedHeaders.length === 0) combinedHeaders = hdrs;
               const rows = values.slice(1).filter(r => r.some(c => c));
-              if (rows.length === 0) continue;
-
+              if (rows.length === 0) return { bar: { name: proj, onTrack: 0, atRisk: 0, blocked: 0 }, row: null, hdrs };
               const storyCol = hdrs.findIndex(h => h?.toLowerCase().trim() === 'story points');
               const healthCol = hdrs.findIndex(h => h?.toLowerCase().trim() === 'health');
               const sprintCol = hdrs.findIndex(h => h?.toLowerCase().trim() === 'sprint');
-
-              // Find the latest sprint name
               const lastSprintName = rows[rows.length - 1]?.[sprintCol]?.trim();
-
-              // Get all rows belonging to the latest sprint
-              const latestSprintRows = lastSprintName
-                ? rows.filter(r => r[sprintCol]?.trim() === lastSprintName)
-                : [rows[rows.length - 1]];
-
-              // Use last row of latest sprint for combined sheetData
-              combinedRows.push(latestSprintRows[latestSprintRows.length - 1]);
-
-              // Accumulate story points per health across all latest sprint rows
+              const latestSprintRows = lastSprintName ? rows.filter(r => r[sprintCol]?.trim() === lastSprintName) : [rows[rows.length - 1]];
               let onTrack = 0, atRisk = 0, blocked = 0;
               latestSprintRows.forEach(r => {
                 const sp = parseInt(String(r[storyCol] || '0').match(/\d+/)?.[0] || 0);
                 const health = r[healthCol]?.toLowerCase().trim();
                 if (health === 'green') onTrack += sp;
-                else if (health === 'yellow') atRisk += sp;
+                else if (health === 'amber' || health === 'yellow') atRisk += sp;
                 else if (health === 'red') blocked += sp;
                 else onTrack += sp;
               });
-              results.push({ name: proj, onTrack, atRisk, blocked });
-            } catch (e) { /* skip failed sheets */ }
-          }
+              return { bar: { name: proj, onTrack, atRisk, blocked }, row: latestSprintRows[latestSprintRows.length - 1], hdrs };
+            } catch (e) { return { bar: { name: proj, onTrack: 0, atRisk: 0, blocked: 0 }, row: null, hdrs: null }; }
+          };
+
+          const settled = await Promise.all(clientProjects.map(fetchProject));
+          const results = settled.map(s => s.bar);
+          const combinedRows = settled.filter(s => s.row).map(s => s.row);
+          const combinedHeaders = settled.find(s => s.hdrs)?.hdrs || [];
+
           setClientBarData(results);
+          setSelectedProjects(new Set(results.map(r => r.name)));
           setHeaders(combinedHeaders);
           setSheetData(combinedRows);
           setLoading(false);
@@ -176,7 +186,7 @@ const MonthlyHealthDashboard = ({ projectName, clientName, projectStats, clientP
         const spreadsheetId = sheetUrl.split('/d/')[1]?.split('/')[0];
 
         await ensureGapi();
-        const gapiRes = await window.gapi.client.sheets.spreadsheets.values.get({ spreadsheetId, range: 'A1:W' });
+        const gapiRes = await window.gapi.client.sheets.spreadsheets.values.get({ spreadsheetId, range: 'A1:X' });
         let values = gapiRes.result.values;
 
         if (values && values.length > 0) {
@@ -194,7 +204,7 @@ const MonthlyHealthDashboard = ({ projectName, clientName, projectStats, clientP
     const storageKey = `sprintHub_${projectName}_Project Dashboard14`;
     const stored = localStorage.getItem(storageKey) || POWER_BI_URLS[projectName] || POWER_BI_URLS.default;
     setPowerBiUrl(stored);
-  }, [projectName]);
+  }, [projectName, clientName, clientProjects]);
 
   const col = (name) => headers.findIndex(h => h?.toLowerCase().includes(name.toLowerCase()));
 
@@ -215,13 +225,9 @@ const MonthlyHealthDashboard = ({ projectName, clientName, projectStats, clientP
     return match ? parseInt(match[0]) : 0;
   };
 
-  const healthGreen = sheetData.filter(r => r[healthIdx]?.toLowerCase() === 'green').length;
-  const healthYellow = sheetData.filter(r => r[healthIdx]?.toLowerCase() === 'yellow').length;
-  const healthRed = sheetData.filter(r => r[healthIdx]?.toLowerCase() === 'red').length;
   const totalSprints = sheetData.length;
   const completed = sheetData.filter(r => r[statusIdx]?.toLowerCase() === 'completed').length;
   const inProgress = sheetData.filter(r => r[statusIdx]?.toLowerCase() === 'inprogress' || r[statusIdx]?.toLowerCase() === 'in progress').length;
-  const healthScore = totalSprints > 0 ? Math.round(((healthGreen * 100 + healthYellow * 50) / (totalSprints * 100)) * 100) : 0;
 
   // Group all rows by sprint name, accumulate story points per health color
   const sprintMap = {};
@@ -231,7 +237,7 @@ const MonthlyHealthDashboard = ({ projectName, clientName, projectStats, clientP
     const health = r[healthIdx]?.toLowerCase().trim();
     if (!sprintMap[sprintName]) sprintMap[sprintName] = { name: sprintName, onTrack: 0, atRisk: 0, blocked: 0 };
     if (health === 'green') sprintMap[sprintName].onTrack += sp;
-    else if (health === 'yellow') sprintMap[sprintName].atRisk += sp;
+    else if (health === 'amber' || health === 'yellow') sprintMap[sprintName].atRisk += sp;
     else if (health === 'red') sprintMap[sprintName].blocked += sp;
     else sprintMap[sprintName].onTrack += sp;
   });
@@ -258,6 +264,7 @@ const MonthlyHealthDashboard = ({ projectName, clientName, projectStats, clientP
       if (status === 'BILLABLE') acc.billable = (acc.billable || 0) + 1;
       if (status === 'CONFIRMED') acc.confirmed = (acc.confirmed || 0) + 1;
       if (status === 'RESERVED') acc.reserved = (acc.reserved || 0) + 1;
+      if (status === 'AVAILABLE') acc.available = (acc.available || 0) + 1;
       return acc;
     }, {});
   })();
@@ -265,16 +272,8 @@ const MonthlyHealthDashboard = ({ projectName, clientName, projectStats, clientP
   const billable = computedStats.billable || 0;
   const confirmed = computedStats.confirmed || 0;
   const reserved = computedStats.reserved || 0;
+  const available = computedStats.available || 0;
   const totalEmployees = computedStats.totalEmployees || 0;
-
-  const gaugeColor = healthScore >= 70 ? '#22c55e' : healthScore >= 40 ? '#eab308' : '#ef4444';
-
-  const growthStack = [
-    { label: 'React (Frontend)', icon: '📈', color: '#61dafb' },
-    { label: 'Node.js (Backend API)', icon: '🟢', color: '#68a063' },
-    { label: 'Azure AD (Authentication)', icon: '🔷', color: '#0078d4' },
-    { label: 'Power BI Service (Report)', icon: '📊', color: '#f2c811' },
-  ];
 
   const panelStyle = { backgroundColor: '#fff', borderRadius: '10px', padding: '14px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', marginBottom: '12px' };
   const labelStyle = { fontSize: '11px', color: '#6b7280', marginBottom: '2px' };
@@ -287,7 +286,24 @@ const MonthlyHealthDashboard = ({ projectName, clientName, projectStats, clientP
   );
 
   const isClientView = !projectName;
-  const chartData = isClientView ? clientBarData : barData;
+  const activeSelected = selectedProjects ?? new Set();
+  const chartData = isClientView
+    ? clientBarData.filter(d => activeSelected.has(d.name))
+    : barData;
+
+  // Derive health totals from chartData (story points) so they always match the bar chart
+  const healthGreen = chartData.reduce((s, d) => s + d.onTrack, 0);
+  const healthYellow = chartData.reduce((s, d) => s + d.atRisk, 0);
+  const healthRed = chartData.reduce((s, d) => s + d.blocked, 0);
+  const totalSP = healthGreen + healthYellow + healthRed;
+  const healthScore = totalSP > 0 ? Math.round(((healthGreen * 100 + healthYellow * 50) / (totalSP * 100)) * 100) : 0;
+  const gaugeColor = healthScore >= 70 ? '#22c55e' : healthScore >= 40 ? '#f59e0b' : '#ef4444';
+
+  // Dynamic KPI variables — declared after totalSP/chartData
+  const totalStoryPoints = totalSP;
+  const completionRate = totalSprints > 0 ? Math.round((completed / totalSprints) * 100) : 0;
+  const latestSprintName = latestRow[sprintIdx] || '—';
+  const avgSPPerSprint = totalSprints > 0 ? Math.round(totalStoryPoints / totalSprints) : 0;
 
   if (showPowerBi) return (
     <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', backgroundColor: '#f0f4f8', fontFamily: 'Segoe UI, sans-serif' }}>
@@ -369,6 +385,7 @@ const MonthlyHealthDashboard = ({ projectName, clientName, projectStats, clientP
               { label: 'Billable', value: billable, color: '#22c55e' },
               { label: 'Confirmed', value: confirmed, color: '#3b82f6' },
               { label: 'Reserved', value: reserved, color: '#a855f7' },
+              { label: 'Available(Project-Wait)', value: available, color: '#f59e0b' },
             ].map(item => (
               <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -384,7 +401,7 @@ const MonthlyHealthDashboard = ({ projectName, clientName, projectStats, clientP
             {[
               { label: 'Total Sprints', value: totalSprints, color: '#1e3a5f' },
               { label: 'Completed', value: completed, color: '#22c55e' },
-              { label: 'In Progress', value: inProgress, color: '#eab308' },
+              { label: 'In Progress', value: inProgress, color: '#f59e0b' },
             ].map(item => (
               <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
                 <span style={{ fontSize: '12px', color: '#6b7280' }}>{item.label}</span>
@@ -392,6 +409,49 @@ const MonthlyHealthDashboard = ({ projectName, clientName, projectStats, clientP
               </div>
             ))}
           </div>
+
+          {isClientView && clientBarData.length > 0 && (
+            <div style={panelStyle}>
+              <div style={{ fontSize: '11px', fontWeight: '700', color: '#2a89ac', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Filter & Search</div>
+              <div style={{ fontSize: '10px', color: '#9ca3af', marginBottom: '6px' }}>{clientName}</div>
+              <input
+                type="text"
+                placeholder="Search projects..."
+                value={projectSearch}
+                onChange={e => setProjectSearch(e.target.value)}
+                style={{ width: '100%', padding: '5px 8px', fontSize: '11px', border: '1px solid #d1d5db', borderRadius: '6px', marginBottom: '8px', boxSizing: 'border-box', outline: 'none' }}
+              />
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                <button
+                  onClick={() => setSelectedProjects(new Set(clientBarData.map(r => r.name)))}
+                  style={{ fontSize: '10px', color: '#2a89ac', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                >All</button>
+                <button
+                  onClick={() => setSelectedProjects(new Set())}
+                  style={{ fontSize: '10px', color: '#6b7280', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                >None</button>
+              </div>
+              <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                {clientBarData
+                  .filter(d => d.name.toLowerCase().includes(projectSearch.toLowerCase()))
+                  .map(d => (
+                    <label key={d.name} style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '5px', cursor: 'pointer', fontSize: '11px', color: '#374151' }}>
+                      <input
+                        type="checkbox"
+                        checked={activeSelected.has(d.name)}
+                        onChange={() => {
+                          const next = new Set(activeSelected);
+                          next.has(d.name) ? next.delete(d.name) : next.add(d.name);
+                          setSelectedProjects(next);
+                        }}
+                        style={{ accentColor: '#2a89ac', width: '13px', height: '13px', flexShrink: 0 }}
+                      />
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.name}</span>
+                    </label>
+                  ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* CENTER */}
@@ -400,7 +460,7 @@ const MonthlyHealthDashboard = ({ projectName, clientName, projectStats, clientP
             <div style={{ fontSize: '12px', fontWeight: '700', color: '#1e3a5f', marginBottom: '10px' }}>{isClientView ? '📊 Portfolio Projects — Latest Sprint Story Points' : '📊 Portfolio Project — Sprint Story Points'}</div>
             <CustomBarChart data={chartData} />
             <div style={{ display: 'flex', gap: '12px', marginTop: '8px', justifyContent: 'center' }}>
-              {[['#22c55e', 'Green'], ['#eab308', 'Yellow'], ['#ef4444', 'Red']].map(([c, l]) => (
+              {[['#ef4444', 'Red'], ['#f59e0b', 'Amber'], ['#22c55e', 'Green']].map(([c, l]) => (
                 <div key={l} style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', color: '#6b7280' }}>
                   <div style={{ width: '8px', height: '8px', borderRadius: '2px', backgroundColor: c }} />{l}
                 </div>
@@ -413,7 +473,7 @@ const MonthlyHealthDashboard = ({ projectName, clientName, projectStats, clientP
             <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
               {[
                 { label: 'Green', count: healthGreen, color: HEALTH_COLORS.green },
-                { label: 'Yellow', count: healthYellow, color: HEALTH_COLORS.yellow },
+                { label: 'Amber', count: healthYellow, color: HEALTH_COLORS.amber },
                 { label: 'Red', count: healthRed, color: HEALTH_COLORS.red },
               ].map(h => (
                 <div key={h.label} style={{ flex: 1, backgroundColor: h.color + '18', border: `1px solid ${h.color}40`, borderRadius: '8px', padding: '8px', textAlign: 'center' }}>
@@ -457,38 +517,139 @@ const MonthlyHealthDashboard = ({ projectName, clientName, projectStats, clientP
             <GaugeChart value={healthScore} color={gaugeColor} label="Health Score" />
             <div style={{ marginTop: '6px', padding: '4px 10px', backgroundColor: gaugeColor + '20', borderRadius: '12px', display: 'inline-block' }}>
               <span style={{ fontSize: '11px', fontWeight: '700', color: gaugeColor }}>
-                {healthScore >= 70 ? 'HEALTHY' : healthScore >= 40 ? 'AT RISK' : 'CRITICAL'}
+                {healthScore >= 70 ? 'On Track)' : healthScore >= 40 ? 'At Risk' : 'Critical'}
               </span>
             </div>
           </div>
 
           <div style={panelStyle}>
-            <div style={{ fontSize: '12px', fontWeight: '700', color: '#1e3a5f', marginBottom: '8px' }}>📌 Current Focus Areas</div>
-            {/* {sheetData.slice(-3).reverse().map((row, i) => (
-              <div key={i} style={{ marginBottom: '8px', padding: '6px 8px', backgroundColor: '#f8fafc', borderRadius: '6px', borderLeft: `3px solid ${row[healthIdx]?.toLowerCase() === 'green' ? '#22c55e' : row[healthIdx]?.toLowerCase() === 'red' ? '#ef4444' : '#eab308'}` }}>
-                <div style={{ fontSize: '10px', fontWeight: '600', color: '#374151' }}>{row[sprintIdx] || `Sprint ${sheetData.length - i}`}</div>
-                <div style={{ fontSize: '10px', color: '#6b7280', marginTop: '2px' }}>{row[tasksIdx]?.substring(0, 50) || row[assignedIdx] || 'No tasks listed'}{(row[tasksIdx]?.length > 50) ? '...' : ''}</div>
+            {/* Header */}
+            <div style={{ marginBottom: '8px' }}>
+              <div style={{ fontSize: '12px', fontWeight: '700', color: '#1e3a5f', marginBottom: '6px' }}>📌 Current Focus Areas</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <select
+                  value={focusFilter}
+                  onChange={e => setFocusFilter(e.target.value)}
+                  style={{ fontSize: '10px', border: '1px solid #d1d5db', borderRadius: '6px', padding: '2px 6px', color: '#374151', outline: 'none', flex: 1 }}
+                >
+                  {['All', 'In Progress', 'On Track', 'Blocked'].map(f => <option key={f}>{f}</option>)}
+                </select>
+                <button
+                  onClick={() => setShowAddFocus(s => !s)}
+                  style={{ fontSize: '10px', backgroundColor: '#1e3a5f', color: '#fff', border: 'none', borderRadius: '6px', padding: '3px 8px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                >+ Add</button>
               </div>
-            ))}
-            {sheetData.length === 0 && <div style={{ fontSize: '11px', color: '#9ca3af' }}>No focus areas available</div>} */}
+            </div>
+
+            {/* Add Form */}
+            {showAddFocus && (
+              <div style={{ backgroundColor: '#f8fafc', borderRadius: '8px', padding: '10px', marginBottom: '10px', border: '1px solid #e5e7eb' }}>
+                <input placeholder="Title" value={newFocus.title} onChange={e => setNewFocus(n => ({ ...n, title: e.target.value }))}
+                  style={{ width: '100%', fontSize: '11px', border: '1px solid #d1d5db', borderRadius: '5px', padding: '5px 8px', marginBottom: '6px', boxSizing: 'border-box', outline: 'none' }} />
+                <input placeholder="Short description" value={newFocus.desc} onChange={e => setNewFocus(n => ({ ...n, desc: e.target.value }))}
+                  style={{ width: '100%', fontSize: '11px', border: '1px solid #d1d5db', borderRadius: '5px', padding: '5px 8px', marginBottom: '6px', boxSizing: 'border-box', outline: 'none' }} />
+                <input placeholder="Link URL (optional)" value={newFocus.link} onChange={e => setNewFocus(n => ({ ...n, link: e.target.value }))}
+                  style={{ width: '100%', fontSize: '11px', border: '1px solid #d1d5db', borderRadius: '5px', padding: '5px 8px', marginBottom: '6px', boxSizing: 'border-box', outline: 'none' }} />
+                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                  <select value={newFocus.status} onChange={e => setNewFocus(n => ({ ...n, status: e.target.value }))}
+                    style={{ fontSize: '11px', border: '1px solid #d1d5db', borderRadius: '5px', padding: '4px 6px', flex: 1, outline: 'none' }}>
+                    {['In Progress', 'On Track', 'Blocked'].map(s => <option key={s}>{s}</option>)}
+                  </select>
+                  <button
+                    onClick={() => {
+                      if (!newFocus.title.trim()) return;
+                      const updated = [...focusItems, { ...newFocus, id: Date.now() }];
+                      setFocusItems(updated);
+                      localStorage.setItem(focusKey, JSON.stringify(updated));
+                      setNewFocus({ title: '', desc: '', status: 'In Progress', link: '' });
+                      setShowAddFocus(false);
+                    }}
+                    style={{ fontSize: '11px', backgroundColor: '#22c55e', color: '#fff', border: 'none', borderRadius: '5px', padding: '4px 12px', cursor: 'pointer' }}
+                  >Save</button>
+                </div>
+              </div>
+            )}
+
+            {/* Items */}
+            <div style={{ maxHeight: '280px', overflowY: 'auto' }}>
+              {(focusFilter === 'All' ? focusItems : focusItems.filter(f => f.status === focusFilter)).length === 0 && (
+                <div style={{ fontSize: '11px', color: '#9ca3af', textAlign: 'center', padding: '16px 0' }}>No focus areas. Click + Add to create one.</div>
+              )}
+              {(focusFilter === 'All' ? focusItems : focusItems.filter(f => f.status === focusFilter)).map(item => {
+                const statusColors = { 'In Progress': ['#f59e0b', '#fffbeb'], 'On Track': ['#3b82f6', '#eff6ff'], 'Blocked': ['#ef4444', '#fef2f2'] };
+                const [sc, bg] = statusColors[item.status] || ['#6b7280', '#f9fafb'];
+                return (
+                  <div key={item.id} style={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '10px 12px', marginBottom: '8px', borderLeft: `3px solid ${sc}` }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
+                      <div style={{ fontSize: '12px', fontWeight: '700', color: '#1e3a5f', flex: 1, paddingRight: '6px' }}>{item.title}</div>
+                      <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
+                        <span style={{ fontSize: '9px', backgroundColor: bg, color: sc, padding: '2px 7px', borderRadius: '10px', fontWeight: '600', border: `1px solid ${sc}30` }}>{item.status}</span>
+                        <button onClick={() => { const updated = focusItems.filter(f => f.id !== item.id); setFocusItems(updated); localStorage.setItem(focusKey, JSON.stringify(updated)); }}
+                          style={{ fontSize: '9px', background: 'none', border: 'none', cursor: 'pointer', color: '#d1d5db', padding: '0 2px' }}>×</button>
+                      </div>
+                    </div>
+                    {item.desc && <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '6px', lineHeight: '1.5' }}>{item.desc}</div>}
+                    {item.link && (
+                      <a href={item.link} target="_blank" rel="noopener noreferrer"
+                        style={{ fontSize: '10px', color: '#2a89ac', fontWeight: '600', textDecoration: 'none' }}>👉 View Details</a>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
           <div style={panelStyle}>
-            <div style={{ fontSize: '12px', fontWeight: '700', color: '#1e3a5f', marginBottom: '10px' }}>📈 Growth</div>
-            {growthStack.map((item, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                <div style={{ width: '24px', height: '24px', borderRadius: '50%', backgroundColor: item.color + '30', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', flexShrink: 0 }}>{item.icon}</div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '11px', color: '#374151', fontWeight: '500' }}>{item.label}</div>
-                  <div style={{ height: '3px', backgroundColor: '#e5e7eb', borderRadius: '2px', marginTop: '3px' }}>
-                    <div style={{ height: '100%', width: `${85 - i * 10}%`, backgroundColor: item.color, borderRadius: '2px' }} />
-                  </div>
-                </div>
-                {i < growthStack.length - 1 && (
-                  <div style={{ position: 'absolute', marginLeft: '8px', marginTop: '20px', fontSize: '8px', color: '#9ca3af' }}>↓</div>
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+              <div style={{ fontSize: '12px', fontWeight: '700', color: '#1e3a5f' }}>📈 Growth</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                {editingGrowth ? (
+                  <select
+                    value={growthNote.tag}
+                    onChange={e => setGrowthNote(g => ({ ...g, tag: e.target.value }))}
+                    style={{ fontSize: '10px', border: '1px solid #d1d5db', borderRadius: '10px', padding: '2px 6px', color: '#374151' }}
+                  >
+                    {['Hiring', 'On Track', 'At Risk', 'Blocked', 'Update'].map(t => <option key={t}>{t}</option>)}
+                  </select>
+                ) : (
+                  <span style={{ fontSize: '10px', backgroundColor: '#dcfce7', color: '#16a34a', padding: '2px 8px', borderRadius: '10px', fontWeight: '600' }}>{growthNote.tag}</span>
                 )}
+                <button
+                  onClick={() => {
+                    if (editingGrowth) {
+                      const updated = { ...growthNote, updatedAt: new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) };
+                      const key = `sprintHub_growth_${clientName}_${projectName || 'client'}`;
+                      localStorage.setItem(key, JSON.stringify(updated));
+                      setGrowthNote(updated);
+                    }
+                    setEditingGrowth(e => !e);
+                  }}
+                  style={{ fontSize: '10px', background: 'none', border: '1px solid #d1d5db', borderRadius: '6px', padding: '2px 8px', cursor: 'pointer', color: '#6b7280' }}
+                >{editingGrowth ? 'Save' : '✏️ Edit'}</button>
               </div>
-            ))}
+            </div>
+            {/* Content */}
+            <div style={{ fontSize: '12px', color: '#374151', minHeight: '80px', maxHeight: '180px', overflowY: 'auto' }}>
+              {editingGrowth ? (
+                <textarea
+                  value={growthNote.text}
+                  onChange={e => setGrowthNote(g => ({ ...g, text: e.target.value }))}
+                  placeholder="Enter update… e.g.&#10;Gap is hiring for a Java Engineer in India.&#10;• 2 candidates shortlisted&#10;• 1 interview completed"
+                  style={{ width: '100%', minHeight: '120px', fontSize: '12px', border: '1px solid #d1d5db', borderRadius: '6px', padding: '8px', boxSizing: 'border-box', resize: 'vertical', outline: 'none', fontFamily: 'inherit', lineHeight: '1.6' }}
+                />
+              ) : growthNote.text ? (
+                <p style={{ margin: 0, lineHeight: '1.7', whiteSpace: 'pre-wrap' }}>{growthNote.text}</p>
+              ) : (
+                <p style={{ margin: 0, color: '#9ca3af', fontStyle: 'italic' }}>No growth update yet. Click ✏️ Edit to add one.</p>
+              )}
+            </div>
+            {/* Footer */}
+            {growthNote.updatedAt && (
+              <div style={{ marginTop: '10px', paddingTop: '8px', borderTop: '1px solid #f3f4f6', fontSize: '10px', color: '#9ca3af' }}>
+                Last updated: {growthNote.updatedAt}
+              </div>
+            )}
           </div>
 
           {/* {headers.length > 0 && (

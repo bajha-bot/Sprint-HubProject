@@ -7,7 +7,7 @@ import { STORAGE_KEYS } from '../constants/storageKeys';
 const AuthContext = createContext(null);
 
 const CACHE_VERSION = 'v2';
-const CACHE_TTL = 300000; // 5 minutes
+const CACHE_TTL = 1800000; // 30 minutes
 
 const getCachedEmployees = () => {
   try {
@@ -29,6 +29,20 @@ const setCachedEmployees = (normalized) => {
   } catch {}
 };
 
+const getCachedAdminEmails = () => {
+  try {
+    const data = localStorage.getItem('sprintHub_admin_emails_cache');
+    if (data) return JSON.parse(data);
+  } catch {}
+  return null;
+};
+
+const setCachedAdminEmails = (emails) => {
+  try {
+    localStorage.setItem('sprintHub_admin_emails_cache', JSON.stringify(emails));
+  } catch {}
+};
+
 const buildUser = (record, adminEmails = []) => ({
   employeeId: record.employeeId,
   name: record.employeeName,
@@ -46,8 +60,12 @@ const fetchAdminEmails = async () => {
   try {
     const res = await fetch('/api/admin-emails');
     const data = await res.json();
-    return data.adminEmails || [];
-  } catch { return []; }
+    const emails = data.adminEmails || [];
+    setCachedAdminEmails(emails);
+    return emails;
+  } catch {
+    return getCachedAdminEmails() || [];
+  }
 };
 
 export const AuthProvider = ({ children }) => {
@@ -83,9 +101,10 @@ export const AuthProvider = ({ children }) => {
       const cached = getCachedEmployees();
       if (cached?.records) {
         const userEmail = localStorage.getItem('userEmail');
+        const adminEmails = getCachedAdminEmails() || [];
         setAllEmployees(cached.records);
         const found = cached.records.find(emp => emp.emailId === userEmail);
-        if (found) setUser(buildUser(found, []));
+        if (found) setUser(buildUser(found, adminEmails));
       }
     } finally {
       setLoading(false);

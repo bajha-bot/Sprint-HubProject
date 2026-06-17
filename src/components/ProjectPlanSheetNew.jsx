@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { initializeGoogleAPI, initializeGIS, authenticate } from '../utils/googleSheetsService';
-import { createProjectPlanSheet, getProjectPlanSheetUrl, getConsolidatedSheetUrl, syncConsolidatedSheet, createClientConsolidatedSheet, getClientConsolidatedSheetUrl, syncClientConsolidatedSheet } from '../utils/projectPlanSheetService';
+import { createProjectPlanSheet, getProjectPlanSheetUrl, getConsolidatedSheetUrl, syncConsolidatedSheet, createClientConsolidatedSheet, getClientConsolidatedSheetUrl, syncClientConsolidatedSheet, migrateSheetHeaders } from '../utils/projectPlanSheetService';
 import { updateFileLinkByName } from '../features/createFolderFilesSlice';
 import useGetAllEmployees from '../hooks/useGetAllEmployees';
 
@@ -116,6 +116,16 @@ const ProjectPlanSheetNew = ({ projectName, clientName, readOnly = false }) => {
           console.log('Found existing sheet URL:', existingUrl);
           setSheetUrl(existingUrl);
           setLoading(false);
+          // Ensure gapi is ready then run migration in background
+          Promise.resolve()
+            .then(async () => {
+              if (!window.gapi?.client?.sheets) {
+                await Promise.all([initializeGoogleAPI(), initializeGIS()]);
+              }
+              if (!window.gapi.client.getToken()) await authenticate();
+              await migrateSheetHeaders();
+            })
+            .catch(e => console.warn('[migration]', e));
           return;
         }
 

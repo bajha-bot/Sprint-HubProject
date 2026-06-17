@@ -144,7 +144,7 @@ export const storeConsolidatedSheet = async (sheetUrl, spreadsheetId) => {
 
 const sleep = (ms) => new Promise(res => setTimeout(res, ms));
 
-const fetchSheetWithRetry = async (gapi, spreadsheetId, range, retries = 3) => {
+const fetchSheetWithRetry = async (gapi, spreadsheetId, range, retries = 5) => {
   for (let i = 0; i < retries; i++) {
     try {
       const res = await gapi.client.sheets.spreadsheets.values.get({ spreadsheetId, range });
@@ -152,7 +152,26 @@ const fetchSheetWithRetry = async (gapi, spreadsheetId, range, retries = 3) => {
     } catch (e) {
       const status = e?.result?.error?.code || e?.status;
       if (status === 429 && i < retries - 1) {
-        await sleep(1500 * (i + 1)); // 1.5s, 3s, 4.5s
+        const delay = 2000 * Math.pow(2, i); // 2s, 4s, 8s, 16s
+        console.warn(`[fetchSheetWithRetry] 429 rate limit, retrying in ${delay}ms...`);
+        await sleep(delay);
+        continue;
+      }
+      throw e;
+    }
+  }
+};
+
+const apiCallWithRetry = async (fn, retries = 5) => {
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await fn();
+    } catch (e) {
+      const status = e?.result?.error?.code || e?.status;
+      if (status === 429 && i < retries - 1) {
+        const delay = 2000 * Math.pow(2, i);
+        console.warn(`[apiCallWithRetry] 429 rate limit, retrying in ${delay}ms...`);
+        await sleep(delay);
         continue;
       }
       throw e;
@@ -182,6 +201,27 @@ export const syncConsolidatedSheet = async (deletedProjects = []) => {
     await authenticate();
   }
 
+  // Ensure consolidated sheet header has Current Focus Areas
+  const consolidatedHeaders = [
+    'Project Name', 'Sprint', 'Tasks Completed (Last Sprint task - Story Points)',
+    'Story Points', 'Health', 'Emp status', 'Sprint Status', '%Complete', '%Code Coverage',
+    'Duration', 'Start Date', 'End Date', 'Leaves Taken', 'Employee Name', 'Project Manager',
+    'Project Owner', 'Project Sponsor', 'Achievemnets', 'Current Focus Areas', 'Growth', 'Assigned to',
+    'Tasks Assigned (Current Sprint)', 'Risks', 'Any Comments'
+  ];
+  const existingHeaderRes = await apiCallWithRetry(() => gapi.client.sheets.spreadsheets.values.get({ spreadsheetId: consolidatedSheetId, range: 'A1:Z1' }));
+  const existingHeaders = existingHeaderRes.result.values?.[0] || [];
+  if (!existingHeaders.includes('Current Focus Areas')) {
+    await apiCallWithRetry(() => gapi.client.sheets.spreadsheets.values.update({
+      spreadsheetId: consolidatedSheetId,
+      range: 'A1',
+      valueInputOption: 'RAW',
+      resource: { values: [consolidatedHeaders] }
+    }));
+    // console.log('[syncConsolidatedSheet] Updated header row with Current Focus Areas');
+  }
+  await sleep(500);
+
   const allSheets = await getStoredProjectPlanSheets();
 
   const validEntries = Object.entries(allSheets).filter(([projectName, sheetData]) => {
@@ -198,33 +238,34 @@ export const syncConsolidatedSheet = async (deletedProjects = []) => {
       continue;
     }
     try {
-      const values = await fetchSheetWithRetry(gapi, spreadsheetId, 'A2:W');
+      const values = await fetchSheetWithRetry(gapi, spreadsheetId, 'A2:X');
       allRows.push(...values.filter(row => row.some(cell => cell?.toString().trim())));
     } catch (e) {
       console.warn(`[Sync] Failed to read ${projectName}:`, e?.result?.error?.message || e);
     }
-    await sleep(300);
+    await sleep(600);
   }
 
   console.log('[Sync] Total rows to write:', allRows.length);
 
   // Always clear and rewrite so deleted projects are removed from the sheet
-  await gapi.client.sheets.spreadsheets.values.clear({
+  await apiCallWithRetry(() => gapi.client.sheets.spreadsheets.values.clear({
     spreadsheetId: consolidatedSheetId,
-    range: 'A2:W'
-  });
+    range: 'A2:X'
+  }));
 
   if (allRows.length === 0) {
     console.warn('[Sync] No rows found — sheet cleared');
     return;
   }
 
-  await gapi.client.sheets.spreadsheets.values.update({
+  await sleep(500);
+  await apiCallWithRetry(() => gapi.client.sheets.spreadsheets.values.update({
     spreadsheetId: consolidatedSheetId,
     range: 'A2',
     valueInputOption: 'RAW',
     resource: { values: allRows }
-  });
+  }));
   console.log('[Sync] Successfully wrote', allRows.length, 'rows to consolidated sheet');
 };
 
@@ -251,7 +292,7 @@ export const createProjectPlanSheet = async (projectName, gapi) => {
     const headers = [
       'Project Name', 'Sprint', 'Tasks Completed (Last Sprint task - Story Points)',
       'Story Points', 'Health', 'Emp status', 'Sprint Status', '%Complete','%Code Coverage',
-      'Duration', 'Start Date', 'End Date', 'Leaves Taken', 'Employee Name','Project Manager','Project Owner','Project Sponsor','Achievemnets','Growth','Assigned to',
+      'Duration', 'Start Date', 'End Date', 'Leaves Taken', 'Employee Name','Project Manager','Project Owner','Project Sponsor','Achievemnets','Current Focus Areas','Growth','Assigned to',
       'Tasks Assigned (Current Sprint)', 'Risks','Any Comments'
     ];
 
@@ -342,6 +383,27 @@ export const syncClientConsolidatedSheet = async (clientName, clientProjects) =>
     await authenticate();
   }
 
+  // Ensure client consolidated sheet header has Current Focus Areas
+  const clientHeaders = [
+    'Project Name', 'Sprint', 'Tasks Completed (Last Sprint task - Story Points)',
+    'Story Points', 'Health', 'Emp status', 'Sprint Status', '%Complete', '%Code Coverage',
+    'Duration', 'Start Date', 'End Date', 'Leaves Taken', 'Employee Name', 'Project Manager',
+    'Project Owner', 'Project Sponsor', 'Achievemnets', 'Current Focus Areas', 'Growth', 'Assigned to',
+    'Tasks Assigned (Current Sprint)', 'Risks', 'Any Comments'
+  ];
+  const existingClientHeaderRes = await apiCallWithRetry(() => gapi.client.sheets.spreadsheets.values.get({ spreadsheetId: consolidatedSheetId, range: 'A1:Z1' }));
+  const existingClientHeaders = existingClientHeaderRes.result.values?.[0] || [];
+  if (!existingClientHeaders.includes('Current Focus Areas')) {
+    await apiCallWithRetry(() => gapi.client.sheets.spreadsheets.values.update({
+      spreadsheetId: consolidatedSheetId,
+      range: 'A1',
+      valueInputOption: 'RAW',
+      resource: { values: [clientHeaders] }
+    }));
+    console.log('[syncClientConsolidatedSheet] Updated header row with Current Focus Areas');
+  }
+  await sleep(500);
+
   const allSheets = await getStoredProjectPlanSheets();
   const allRows = [];
   const errors = [];
@@ -351,13 +413,13 @@ export const syncClientConsolidatedSheet = async (clientName, clientProjects) =>
     const spreadsheetId = sheetData?.spreadsheetId || sheetData?.sheetUrl?.split('/d/')[1]?.split('/')[0];
     if (!spreadsheetId || spreadsheetId === 'null') continue;
     try {
-      const values = await fetchSheetWithRetry(gapi, spreadsheetId, 'A2:W');
+      const values = await fetchSheetWithRetry(gapi, spreadsheetId, 'A2:X');
       const rows = values.filter(row => row.some(cell => cell?.toString().trim()));
       allRows.push(...rows);
     } catch (e) {
       errors.push(`${projectName}: ${e?.result?.error?.message || String(e)}`);
     }
-    await sleep(300); // small delay between each sheet read
+    await sleep(600); // delay between each sheet read
   }
 
   if (allRows.length === 0) throw new Error('No data found in any project sheets for this client.');
@@ -365,7 +427,7 @@ export const syncClientConsolidatedSheet = async (clientName, clientProjects) =>
   // Guard against partial sync overwriting more complete data
   let existingCount = 0;
   try {
-    const existing = await gapi.client.sheets.spreadsheets.values.get({ spreadsheetId: consolidatedSheetId, range: 'A2:A' });
+    const existing = await apiCallWithRetry(() => gapi.client.sheets.spreadsheets.values.get({ spreadsheetId: consolidatedSheetId, range: 'A2:A' }));
     existingCount = (existing.result.values || []).length;
   } catch (_) {}
   if (existingCount > 0 && allRows.length < existingCount * 0.8) {
@@ -373,13 +435,14 @@ export const syncClientConsolidatedSheet = async (clientName, clientProjects) =>
     return;
   }
 
-  await gapi.client.sheets.spreadsheets.values.clear({ spreadsheetId: consolidatedSheetId, range: 'A2:W' });
-  await gapi.client.sheets.spreadsheets.values.update({
+  await apiCallWithRetry(() => gapi.client.sheets.spreadsheets.values.clear({ spreadsheetId: consolidatedSheetId, range: 'A2:X' }));
+  await sleep(500);
+  await apiCallWithRetry(() => gapi.client.sheets.spreadsheets.values.update({
     spreadsheetId: consolidatedSheetId,
     range: 'A2',
     valueInputOption: 'RAW',
     resource: { values: allRows }
-  });
+  }));
 };
 
 export const createClientConsolidatedSheet = async (clientName, clientProjects, gapi) => {
@@ -390,7 +453,7 @@ export const createClientConsolidatedSheet = async (clientName, clientProjects, 
     'Project Name', 'Sprint', 'Tasks Completed (Last Sprint task - Story Points)',
     'Story Points', 'Health', 'Emp status', 'Sprint Status', '%Complete', '%Code Coverage',
     'Duration', 'Start Date', 'End Date', 'Leaves Taken', 'Employee Name', 'Project Manager',
-    'Project Owner', 'Project Sponsor', 'Achievemnets', 'Growth', 'Assigned to',
+    'Project Owner', 'Project Sponsor', 'Achievemnets','Current Focus Areas' ,'Growth', 'Assigned to',
     'Tasks Assigned (Current Sprint)', 'Risks', 'Any Comments'
   ];
 
@@ -463,7 +526,7 @@ export const createConsolidatedProjectSheet = async (projects, gapi) => {
    const headers = [
       'Project Name', 'Sprint', 'Tasks Completed (Last Sprint task - Story Points)',
       'Story Points', 'Health', 'Emp status', 'Sprint Status', '%Complete','%Code Coverage',
-      'Duration', 'Start Date', 'End Date', 'Leaves Taken', 'Employee Name','Project Manager','Project Owner','Project Sponsor','Achievemnets','Growth','Assigned to',
+      'Duration', 'Start Date', 'End Date', 'Leaves Taken', 'Employee Name','Project Manager','Project Owner','Project Sponsor','Achievemnets','Current Focus Areas','Growth','Assigned to',
       'Tasks Assigned (Current Sprint)', 'Risks','Any Comments'
     ];
 
@@ -516,5 +579,58 @@ export const createConsolidatedProjectSheet = async (projects, gapi) => {
   } catch (error) {
     console.error('Error creating consolidated sheet:', error);
     throw error;
+  }
+};
+
+export const migrateSheetHeaders = async () => {
+  const gapi = window.gapi;
+  if (!gapi?.client?.sheets) { console.warn('[migrateSheetHeaders] gapi not ready'); return; }
+  const allSheets = await getStoredProjectPlanSheets();
+  for (const [projectName, sheetData] of Object.entries(allSheets)) {
+    const spreadsheetId = sheetData.spreadsheetId || sheetData.sheetUrl?.split('/d/')[1]?.split('/')[0];
+    if (!spreadsheetId || spreadsheetId === 'null') continue;
+    try {
+      const res = await gapi.client.sheets.spreadsheets.values.get({ spreadsheetId, range: 'A1:Z1' });
+      const existingHeaders = res.result.values?.[0] || [];
+      if (existingHeaders.includes('Current Focus Areas')) {
+        console.log(`[migrateSheetHeaders] Already has column: ${projectName}`);
+        continue;
+      }
+      const insertAfter = existingHeaders.findIndex(h => h?.toLowerCase().includes('achievem'));
+      const growthIdx = existingHeaders.findIndex(h => h?.toLowerCase() === 'growth');
+      const insertIdx = insertAfter >= 0 ? insertAfter + 1 : growthIdx >= 0 ? growthIdx : existingHeaders.length;
+      // Insert blank column at insertIdx to shift data right
+      await gapi.client.sheets.spreadsheets.batchUpdate({
+        spreadsheetId,
+        resource: {
+          requests: [{ insertDimension: { range: { sheetId: 0, dimension: 'COLUMNS', startIndex: insertIdx, endIndex: insertIdx + 1 }, inheritFromBefore: false } }]
+        }
+      });
+      // Write header name into the new column cell
+      const col = String.fromCharCode(65 + insertIdx);
+      await gapi.client.sheets.spreadsheets.values.update({
+        spreadsheetId,
+        range: `${col}1`,
+        valueInputOption: 'RAW',
+        resource: { values: [['Current Focus Areas']] }
+      });
+      // Style the new header cell to match others (black bg, white bold text)
+      await gapi.client.sheets.spreadsheets.batchUpdate({
+        spreadsheetId,
+        resource: {
+          requests: [{
+            repeatCell: {
+              range: { sheetId: 0, startRowIndex: 0, endRowIndex: 1, startColumnIndex: insertIdx, endColumnIndex: insertIdx + 1 },
+              cell: { userEnteredFormat: { backgroundColor: { red: 0, green: 0, blue: 0 }, textFormat: { bold: true, foregroundColor: { red: 1, green: 1, blue: 1 } }, horizontalAlignment: 'CENTER' } },
+              fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment)'
+            }
+          }]
+        }
+      });
+      console.log(`[migrateSheetHeaders] Added 'Current Focus Areas' to ${projectName} at col ${col}`);
+    } catch (e) {
+      console.warn(`[migrateSheetHeaders] Skipped ${projectName}:`, e?.result?.error?.message || e);
+    }
+    await sleep(400);
   }
 };

@@ -4,6 +4,7 @@ import { initializeGoogleAPI, initializeGIS, authenticate } from '../utils/googl
 import { createProjectPlanSheet, getProjectPlanSheetUrl, getConsolidatedSheetUrl, syncConsolidatedSheet, createClientConsolidatedSheet, getClientConsolidatedSheetUrl, syncClientConsolidatedSheet, migrateSheetHeaders } from '../utils/projectPlanSheetService';
 import { updateFileLinkByName } from '../features/createFolderFilesSlice';
 import useGetAllEmployees from '../hooks/useGetAllEmployees';
+import './SheetHeader.css';
 
 const ProjectPlanSheetNew = ({ projectName, clientName, readOnly = false }) => {
   const [sheetUrl, setSheetUrl] = useState(null);
@@ -205,42 +206,30 @@ const ProjectPlanSheetNew = ({ projectName, clientName, readOnly = false }) => {
 
   return (
     <div style={{ width: '100%', height: '100vh', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ padding: '15px', backgroundColor: '#f5f5f5', borderBottom: '1px solid #ddd', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h3 style={{ margin: 0 }}>{projectName} - Project Plan</h3>
+      <div className="sheet-header">
+        <h3 className="sheet-header-title">{projectName} - Project Plan</h3>
         {!readOnly && (
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <button
-                onClick={handleSync}
-                disabled={syncing}
-                style={{ padding: '8px 16px', backgroundColor: '#17a2b8', color: 'white', border: 'none', borderRadius: '4px', fontSize: '14px', cursor: syncing ? 'not-allowed' : 'pointer' }}
-              >
-                {syncing ? 'Syncing...' : '🔄 Sync to Consolidated'}
-              </button>
-              {lastSynced && (
-                <span style={{ fontSize: '11px', color: '#555', marginTop: '2px' }}>
-                  Last synced: {lastSynced.toLocaleTimeString()}
-                </span>
-              )}
-            </div>
+          <div className="sheet-header-actions">
+            <button onClick={handleSync} disabled={syncing}
+              style={{ padding: '8px 16px', backgroundColor: '#17a2b8', color: 'white', border: 'none', borderRadius: '4px', fontSize: '14px', cursor: syncing ? 'not-allowed' : 'pointer' }}>
+              {syncing ? 'Syncing...' : '🔄 Sync'}
+            </button>
+            {lastSynced && <span style={{ fontSize: '11px', color: '#555' }}>Synced: {lastSynced.toLocaleTimeString()}</span>}
             {consolidatedUrl && (
               <a href={consolidatedUrl} target="_blank" rel="noopener noreferrer"
                 style={{ padding: '8px 16px', backgroundColor: '#28a745', color: 'white', textDecoration: 'none', borderRadius: '4px', fontSize: '14px' }}>
-                View All Projects
+                All Projects
               </a>
             )}
             {clientName && (
-              <button
-                onClick={handleClientSheet}
-                disabled={clientSyncing}
-                style={{ padding: '8px 16px', backgroundColor: clientSyncing ? '#ccc' : '#6f42c1', color: 'white', border: 'none', borderRadius: '4px', fontSize: '14px', cursor: clientSyncing ? 'not-allowed' : 'pointer' }}
-              >
-                {clientSyncing ? 'Creating...' : `📊 ${clientName} - All Projects`}
+              <button onClick={handleClientSheet} disabled={clientSyncing}
+                style={{ padding: '8px 16px', backgroundColor: clientSyncing ? '#ccc' : '#6f42c1', color: 'white', border: 'none', borderRadius: '4px', fontSize: '14px', cursor: clientSyncing ? 'not-allowed' : 'pointer' }}>
+                {clientSyncing ? 'Creating...' : `📊 ${clientName}`}
               </button>
             )}
             <a href={sheetUrl} target="_blank" rel="noopener noreferrer"
               style={{ padding: '8px 16px', backgroundColor: '#2a89ac', color: 'white', textDecoration: 'none', borderRadius: '4px', fontSize: '14px' }}>
-              Open in New Tab
+              Open Tab
             </a>
           </div>
         )}

@@ -4,6 +4,10 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   padding: 24px;
   margin: 16px 0;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 .stats-card.loading,
@@ -53,6 +57,22 @@
   gap: 16px;
 }
 
+.stats-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.stats-card-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
 .stat-item {
   display: flex;
   justify-content: space-between;
@@ -89,19 +109,39 @@
 
 @media (max-width: 768px) {
   .stats-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr 1fr;
   }
-  
+
   .stats-card {
-    padding: 16px;
+    padding: 12px;
     margin: 8px 0;
   }
-  
+
   .stats-title {
-    font-size: 20px;
+    font-size: 16px;
+    margin-bottom: 4px;
+    text-align: left;
   }
-  
+
   .client-name {
-    font-size: 18px;
+    font-size: 14px;
+  }
+
+  .stats-card-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .stats-card-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .stats-card-actions button {
+    flex: 1;
+    min-width: 120px;
+    font-size: 12px;
+    padding: 6px 8px;
   }
 }

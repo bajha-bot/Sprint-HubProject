@@ -23,6 +23,7 @@ function Browse() {
   const [selectedProject, setSelectedProject] = useState(null);
   const [selectedClient, setSelectedClient] = useState(null);
   const [selectedClientProjects, setSelectedClientProjects] = useState([]);
+  const [showContent, setShowContent] = useState(false);
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -76,6 +77,7 @@ function Browse() {
   const handleProjectDashboard = (clientName, projectName) => {
     setSelectedProject(projectName);
     setSelectedClient(clientName);
+    setShowContent(true);
     dispatch(openFileLink('monthly-dashboard'));
     dispatch(changeBreadcrumb(`${projectName} - Monthly Health Dashboard`));
   };
@@ -83,6 +85,7 @@ function Browse() {
   const handleProjectPlanClick = (clientName, projectName) => {
     setSelectedProject(projectName);
     setSelectedClient(clientName);
+    setShowContent(true);
     dispatch(openFileLink('project-plan'));
     dispatch(changeBreadcrumb(`${projectName} - Project Plan`));
   };
@@ -90,6 +93,7 @@ function Browse() {
   const handleProjectTeamClick = (clientName, projectName) => {
     setSelectedProject(projectName);
     setSelectedClient(clientName);
+    setShowContent(true);
     dispatch(openFileLink('project-team'));
     dispatch(changeBreadcrumb(`${projectName} - Project Team`));
   };
@@ -97,6 +101,7 @@ function Browse() {
   const handleRaidLogClick = (clientName, projectName) => {
     setSelectedProject(projectName);
     setSelectedClient(clientName);
+    setShowContent(true);
     dispatch(openFileLink('raid-log'));
     dispatch(changeBreadcrumb(`${projectName} - RAID Log`));
   };
@@ -105,6 +110,7 @@ function Browse() {
     setSelectedClient(clientName);
     setSelectedProject(null);
     setSelectedClientProjects(clientProjects);
+    setShowContent(true);
     dispatch(openFileLink('account-dashboard'));
     dispatch(changeBreadcrumb(`${clientName} - Account Dashboard`));
   };
@@ -125,7 +131,7 @@ function Browse() {
 
   return (
     <div className="browseScreen">
-      <div style={{ background: "#ecfaff", width: "25rem", minWidth: "25rem", height: "100%", overflowY: "scroll", paddingTop: "1rem", paddingLeft: "1rem", paddingRight: "1rem", borderRight: "1px solid #2a89ac", borderTop: "1px solid #2a89ac" }}>
+      <div className={`browser-tree-panel${showContent ? ' browser-tree-hidden' : ''}`}>
         <h5 style={{ marginBottom: "1rem" }}>Browse</h5>
         <ClientProjectTree
           showActions={false}
@@ -140,8 +146,10 @@ function Browse() {
         />
       </div>
       {selectedFileUrl === 'account-dashboard' && selectedClient ? (
-        <div style={{ flex: 1, minWidth: 0, height: '100%', overflowY: 'auto' }}>
+        <div className={`browser-content-panel${showContent ? ' browser-content-visible' : ''}`} style={{ flex: 1, minWidth: 0, height: '100%', overflowY: 'auto' }}>
+          <button className="browser-back-btn" onClick={() => setShowContent(false)}>← Back</button>
           <MonthlyHealthDashboard
+            key={`${selectedClient}`}
             clientName={selectedClient}
             clientProjects={selectedClientProjects}
             employeeData={employeeData}
@@ -149,7 +157,8 @@ function Browse() {
           />
         </div>
       ) : selectedFileUrl === 'monthly-dashboard' && selectedProject ? (
-        <div style={{ flex: 1, minWidth: 0, height: '100%', overflowY: 'auto' }}>
+        <div className={`browser-content-panel${showContent ? ' browser-content-visible' : ''}`} style={{ flex: 1, minWidth: 0, height: '100%', overflowY: 'auto' }}>
+          <button className="browser-back-btn" onClick={() => setShowContent(false)}>← Back</button>
           <ProjectShowDashboard
             projectName={selectedProject}
             clientName={selectedClient}
@@ -161,11 +170,20 @@ function Browse() {
           />
         </div>
       ) : selectedFileUrl === 'project-plan' && selectedProject ? (
-        <ProjectPlanSheetNew projectName={selectedProject} readOnly={true} />
+        <div className={`browser-content-panel${showContent ? ' browser-content-visible' : ''}`} style={{ flex: 1, minWidth: 0, height: '100%', overflowY: 'auto' }}>
+          <button className="browser-back-btn" onClick={() => setShowContent(false)}>← Back</button>
+          <ProjectPlanSheetNew projectName={selectedProject} readOnly={true} />
+        </div>
       ) : selectedFileUrl === 'project-team' && selectedProject ? (
-        <ProjectTeamSheetNew projectName={selectedProject} readOnly={true} />
+        <div className={`browser-content-panel${showContent ? ' browser-content-visible' : ''}`} style={{ flex: 1, minWidth: 0, height: '100%', overflowY: 'auto' }}>
+          <button className="browser-back-btn" onClick={() => setShowContent(false)}>← Back</button>
+          <ProjectTeamSheetNew projectName={selectedProject} readOnly={true} />
+        </div>
       ) : selectedFileUrl === 'raid-log' && selectedProject ? (
-        <RaidLogSheetNew projectName={selectedProject} clientName={selectedClient} readOnly={true} />
+        <div className={`browser-content-panel${showContent ? ' browser-content-visible' : ''}`} style={{ flex: 1, minWidth: 0, height: '100%', overflowY: 'auto' }}>
+          <button className="browser-back-btn" onClick={() => setShowContent(false)}>← Back</button>
+          <RaidLogSheetNew projectName={selectedProject} clientName={selectedClient} readOnly={true} />
+        </div>
       ) : (
         <ContentSection selectedFileUrl={selectedFileUrl} />
       )}

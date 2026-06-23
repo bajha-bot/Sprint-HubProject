@@ -5,3 +5,92 @@
   flex-direction: row;
   overflow: hidden;
 }
+
+/* Desktop: tree panel */
+.browser-tree-panel {
+  background: #ecfaff;
+  width: 25rem;
+  min-width: 25rem;
+  height: 100%;
+  padding-top: 1rem;
+  padding-left: 1rem;
+  padding-right: 1rem;
+  border-right: 1px solid #2a89ac;
+  border-top: 1px solid #2a89ac;
+  overflow-y: scroll;
+  flex-shrink: 0;
+}
+
+.browser-back-btn {
+  display: none;
+}
+
+@media (max-width: 600px) {
+  .browseScreen {
+    flex-direction: column;
+    overflow-y: auto;
+    height: auto;
+    min-height: 100%;
+  }
+
+  /* Tree panel: full screen by default on mobile */
+  .browser-tree-panel {
+    width: 100%;
+    min-width: unset;
+    height: auto;
+    min-height: 100%;
+    border-right: none;
+    border-bottom: 1px solid #2a89ac;
+  }
+
+  /* Hide tree when content is active */
+  .browser-tree-panel.browser-tree-hidden {
+    display: none;
+  }
+
+  /* Content panel: hidden by default on mobile */
+  .browser-content-panel {
+    display: none;
+    flex: 1;
+    width: 100%;
+    height: auto;
+    min-height: 100vh;
+    overflow-y: auto;
+  }
+
+  /* Show content panel when active */
+  .browser-content-panel.browser-content-visible {
+    display: block;
+  }
+
+  /* Back button: visible only on mobile */
+  .browser-back-btn {
+    display: block;
+    margin: 10px 12px 0;
+    padding: 6px 14px;
+    background: #1e3a5f;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+
+  /* Browse page stacking (used by Browse.jsx too) */
+  .browseScreen > div:first-child {
+    width: 100% !important;
+    min-width: unset !important;
+    height: auto !important;
+    max-height: 40vh;
+    overflow-y: auto;
+    border-right: none !important;
+    border-bottom: 1px solid #2a89ac;
+  }
+
+  .browseScreen > div:not(:first-child) {
+    width: 100% !important;
+    min-width: unset !important;
+    height: auto !important;
+    min-height: 50vh;
+  }
+}

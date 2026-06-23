@@ -5,3 +5,14 @@
   width: 100vw;
   overflow: hidden;
 }
+
+@media (max-width: 600px) {
+  .wholeScreen {
+    flex-direction: column;
+  }
+
+  .wholeScreen > div:last-child {
+    height: calc(100vh - 56px) !important;
+    overflow-y: auto !important;
+  }
+}

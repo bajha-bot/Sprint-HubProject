@@ -36,7 +36,7 @@ const style = `
   .dash-wrapper {
     min-height: 100vh;
     background: #fff;
-    padding: 32px 28px;
+    padding: 24px;
   }
  
   /* Header */
@@ -47,6 +47,7 @@ const style = `
     color: var(--navy);
     letter-spacing: -0.5px;
     margin-bottom: 24px;
+    text-align: center;
   }
  
   /* Project ID Card */
@@ -107,20 +108,24 @@ const style = `
     text-transform: uppercase;
     padding: 10px 16px;
     border-bottom: 1.5px solid var(--border);
+    text-align: center;
   }
  
   .quick-link-item {
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 10px;
-    padding: 9px 16px;
+    padding: 19px 16px;
     color: var(--text-secondary);
     font-size: 0.875rem;
     font-weight: 500;
+    
     text-decoration: none;
     border-bottom: 1px solid var(--border);
     transition: background 0.15s, color 0.15s;
     cursor: pointer;
+    
   }
  
   .quick-link-item:last-child { border-bottom: none; }
@@ -183,9 +188,9 @@ const style = `
  
   .section-bar-fill {
     flex: 1;
-    height: 2px;
-    background: var(--border);
-    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    height: 15px;
+    background: #06225f;
+    border-radius: var(--radius-sm);
   }
  
   .section-bar-right {
@@ -332,7 +337,12 @@ const style = `
  
   @media (max-width: 768px) {
     .dash-wrapper { padding: 16px 12px; }
-    .dash-title { font-size: 1.5rem; }
+    .dash-title { font-size: 1.3rem; }
+    .project-name-card { font-size: 1rem; padding: 10px 14px; }
+    .project-id-badge { padding: 10px 14px; font-size: 0.95rem; }
+    .section-bar-label { font-size: 0.85rem; padding: 8px 12px; }
+    .stat-card { min-height: 60px; }
+    .stat-value { font-size: 0.95rem; }
   }
 `;
 
@@ -384,6 +394,8 @@ export default function ProjectShowDashboard({ projectName, clientName, projectS
   const [risks, setRisks] = useState('-');
   const [projectStage, setProjectStage] = useState('-');
   const [description, setDescription] = useState('');
+  const [currentFocus, setCurrentFocus] = useState('');
+  const [growth, setGrowth] = useState('');
 
   useEffect(() => {
     const fetchHealth = async () => {
@@ -436,6 +448,17 @@ export default function ProjectShowDashboard({ projectName, clientName, projectS
         if (risksIdx !== -1) {
           const val = rows.map(r => r[risksIdx]).filter(v => v?.trim()).pop();
           setRisks(val || 'None');
+        }
+
+        const focusIdx = headers.findIndex(h => h?.toLowerCase().includes('current focus'));
+        const growthIdx = headers.findIndex(h => h?.toLowerCase().trim() === 'growth');
+        if (focusIdx !== -1) {
+          const val = rows.map(r => r[focusIdx]).filter(v => v?.trim()).pop();
+          if (val) setCurrentFocus(val);
+        }
+        if (growthIdx !== -1) {
+          const val = rows.map(r => r[growthIdx]).filter(v => v?.trim()).pop();
+          if (val) setGrowth(val);
         }
 
         // Calculate project stage from Start Date and End Date
@@ -515,7 +538,7 @@ export default function ProjectShowDashboard({ projectName, clientName, projectS
  
         <div className="row g-3 align-items-start">
           {/* Left: main content */}
-          <div className="col-12 col-lg-9">
+          <div className="col-12 col-lg-8">
             {/* Top row: ID + Name */}
             <div className="d-flex gap-3 mb-3 flex-wrap">
               <div className="project-id-badge">
@@ -542,37 +565,7 @@ export default function ProjectShowDashboard({ projectName, clientName, projectS
               </div>
             </div>
  
-            {/* Project Information section bar */}
-            <div className="section-bar">
-              <div className="section-bar-label">
-                <i className="bi bi-info-circle me-2" />
-                Project Information
-              </div>
-              <div className="section-bar-fill" />
-            </div>
- 
-            {/* Stats row */}
-            <div className="row g-3 mb-2">
-              {stats.map((s, i) => (
-                <div key={i} className="col-6 col-sm-4 col-md-2">
-                  <div className="stat-card h-100" style={{ background: 'transparent', boxShadow: 'none' }}>
-                    <div className="stat-value" style={{ background: 'transparent' }}>
-                      {s.value}
-                    </div>
-                    <div className="stat-label">{s.label}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
- 
-            {/* Project Updates section bar */}
-            <div className="d-flex align-items-center gap-0 mt-4 mb-3" style={{ borderRadius: "var(--radius-sm)", overflow: "hidden" }}>
-              <div className="section-bar-fill" style={{ flex: 1, borderRadius: "var(--radius-sm) 0 0 var(--radius-sm)" }} />
-              <div className="section-bar-right">
-                <i className="bi bi-map me-2" />
-                Project Updates &amp; Roadmap
-              </div>
-            </div>
+           
  
             {/* Updates placeholder */}
             {/* <div className="updates-card">
@@ -594,8 +587,8 @@ export default function ProjectShowDashboard({ projectName, clientName, projectS
           </div>
  
           {/* Right: Quick Links */}
-          <div className="col-12 col-lg-3">
-            <div className="sidebar-card-wrap">
+          <div className="col-12 col-lg-4">
+            <div className="sidebar-card-wrap" style={{ position: 'static' }}>
               <div className="quick-links-card">
                 <div className="quick-links-header">
                   <i className="bi bi-lightning-charge-fill me-1" />
@@ -650,6 +643,61 @@ export default function ProjectShowDashboard({ projectName, clientName, projectS
             </div>
           </div>
         </div>
+
+        {/* Project Information section bar - full width */}
+        <div className="section-bar" style={{ marginTop: '24px', marginBottom: '18px' }}>
+          <div className="section-bar-label">
+            <i className="bi bi-info-circle me-2" />
+            Project Information
+          </div>
+          <div className="section-bar-fill" />
+        </div>
+
+        {/* Stats row - full width */}
+        <div className="row g-3 mb-2">
+          {stats.map((s, i) => (
+            <div key={i} className="col-6 col-sm-4 col-md-2">
+              <div className="stat-card h-100" style={{ background: 'transparent', boxShadow: 'none' }}>
+                <div className="stat-value" style={{ background: 'transparent' }}>
+                  {s.value}
+                </div>
+                <div className="stat-label">{s.label}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Current Focus & Growth - full width */}
+        {/* {(currentFocus || growth) && (
+          <div className="row g-3 mt-1">
+            {currentFocus && (
+              <div className="col-12 col-md-6">
+                <div className="desc-card">
+                  <div className="desc-label"><i className="bi bi-pin-angle-fill me-1" />Current Focus Areas</div>
+                  <div className="desc-body" style={{ whiteSpace: 'pre-wrap' }}>{currentFocus}</div>
+                </div>
+              </div>
+            )}
+            {growth && (
+              <div className="col-12 col-md-6">
+                <div className="desc-card">
+                  <div className="desc-label"><i className="bi bi-graph-up-arrow me-1" />Growth</div>
+                  <div className="desc-body" style={{ whiteSpace: 'pre-wrap' }}>{growth}</div>
+                </div>
+              </div>
+            )}
+          </div>
+        )} */}
+
+        {/* Project Updates section bar - full width */}
+        <div className="section-bar" style={{ marginTop: '24px', marginBottom: '18px' }}>
+          <div className="section-bar-fill" />
+          <div className="section-bar-label" style={{ borderRadius: '0 var(--radius-sm) var(--radius-sm) 0' }}>
+            <i className="bi bi-map me-2" />
+            Project Updates &amp; Roadmap
+          </div>
+        </div>
+
       </div>
     </>
   );

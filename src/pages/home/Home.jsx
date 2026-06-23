@@ -177,8 +177,9 @@ function Home() {
 
   return (
     <div className="home">
-             <img src={MainLogo} alt="Nisum Logo" width={160} height={55} 
-             style={{position:'absolute',right:'1.5rem',top:'1.5rem',backgroundColor:'white',boxShadow:'-2px 2px 6px grey',padding: '15px',borderRadius:'5px'}}/>
+      <img src={MainLogo} alt="Nisum Logo" width={160} height={55}
+        className="nisum-logo"
+        style={{position:'absolute',right:'1.5rem',top:'1.5rem',backgroundColor:'white',boxShadow:'-2px 2px 6px grey',padding: '15px',borderRadius:'5px'}}/>
 
       <div
         style={{
@@ -187,7 +188,7 @@ function Home() {
           margin: "1.5rem 0rem 2rem 0rem",
         }}
       >
-        <img src={SprintHubLogo} alt="SprintHub Logo" width={300} />
+        <img src={SprintHubLogo} alt="SprintHub Logo" style={{ width: '100%', maxWidth: '300px', height: 'auto' }} />
        
       </div>
       <div ref={searchRef}>
@@ -280,14 +281,14 @@ function Home() {
           onProjectPlanClick={(clientName, projectName) => setSelectedView({ type: 'project-plan', projectName, clientName })}
           onProjectTeamClick={(clientName, projectName) => setSelectedView({ type: 'project-team', projectName, clientName })}
           onProjectDashboardClick={(clientName, projectName) => setSelectedView({ type: 'project-dashboard', projectName, clientName })}
-          onAccountDashboardClick={(clientName, clientProjects) => setSelectedView({ type: 'account-dashboard', clientName, clientProjects })}
+          onAccountDashboardClick={(clientName, clientProjects) => setSelectedView(prev => ({ type: 'account-dashboard', clientName, clientProjects, lastProjectName: prev?.clientName === clientName ? prev?.lastProjectName : null }))}
           onRaidLogClick={(clientName, projectName) => setSelectedView({ type: 'raid-log', projectName, clientName })}
         />
 
         {/* Render selected view inline */}
         {selectedView && (
           <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: '#f8fafc', zIndex: 1000, overflowY: 'auto' }}>
-            <div style={{ padding: '10px 16px', backgroundColor: '#1e3a5f', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ padding: '10px 16px', backgroundColor: '#1e3a5f', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
               <span style={{ color: '#fff', fontWeight: '600', fontSize: '14px' }}>
                 {selectedView.type === 'account-dashboard' ? `📊 ${selectedView.clientName} - Account Dashboard` :
                  selectedView.type === 'project-dashboard' ? `📊 ${selectedView.projectName} - Project Dashboard` :
@@ -298,7 +299,13 @@ function Home() {
               <button onClick={() => setSelectedView(null)} style={{ background: '#ef4444', color: '#fff', border: 'none', borderRadius: '4px', padding: '4px 12px', cursor: 'pointer', fontSize: '13px' }}>← Back</button>
             </div>
             {selectedView.type === 'account-dashboard' && (
-              <MonthlyHealthDashboard clientName={selectedView.clientName} clientProjects={selectedView.clientProjects} employeeData={employeeData} projectStats={{}} />
+              <MonthlyHealthDashboard
+                key={`${selectedView.clientName}`}
+                clientName={selectedView.clientName}
+                clientProjects={selectedView.clientProjects}
+                employeeData={employeeData}
+                projectStats={{}}
+              />
             )}
             {selectedView.type === 'project-dashboard' && (
               <ProjectShowDashboard projectName={selectedView.projectName} clientName={selectedView.clientName} projectStats={getProjectStats(selectedView.clientName, selectedView.projectName)}
@@ -309,7 +316,20 @@ function Home() {
               />
             )}
             {selectedView.type === 'project-plan' && (
-              <ProjectPlanSheetNew projectName={selectedView.projectName} readOnly={true} />
+              <div style={{ display: 'flex', height: '100%', overflow: 'hidden', flexWrap: 'wrap' }}>
+                <div style={{ flex: 1, minWidth: '280px' }}>
+                  <ProjectPlanSheetNew projectName={selectedView.projectName} readOnly={true} />
+                </div>
+                <div style={{ width: '620px', minWidth: '280px', maxWidth: '100%', height: '100%', overflowY: 'auto', borderLeft: '1px solid #dde2f0', flex: '0 1 620px' }}>
+                  <MonthlyHealthDashboard
+                    key={`proj-${selectedView.projectName}`}
+                    projectName={selectedView.projectName}
+                    clientName={selectedView.clientName}
+                    employeeData={employeeData}
+                    projectStats={getProjectStats(selectedView.clientName, selectedView.projectName)}
+                  />
+                </div>
+              </div>
             )}
             {selectedView.type === 'project-team' && (
               <ProjectTeamSheetNew projectName={selectedView.projectName} readOnly={true} />

@@ -5,8 +5,10 @@ const serverGet = async (key) => {
     const serverValue = data[key];
     const localValue = localStorage.getItem(key);
     const result = serverValue ?? localValue ?? null;
-    if (serverValue && !localValue) {
-      localStorage.setItem(key, serverValue);
+    // Always sync server value to localStorage so fallback is fresh
+    if (serverValue !== undefined && serverValue !== null) {
+      const toStore = typeof serverValue === 'string' ? serverValue : JSON.stringify(serverValue);
+      localStorage.setItem(key, toStore);
     }
     return result;
   } catch (e) {
@@ -77,6 +79,24 @@ const CONSOLIDATED_SHEET_KEY = 'sprintHub_consolidated_sheet';
 
 const sanitizeProjectName = (name) => name?.replace(/[\r\n\t]+/g, ' ').trim() ?? '';
 
+const fuzzyFindKey = (sheets, projectName) => {
+  const norm = s => sanitizeProjectName(s).toLowerCase();
+  const target = norm(projectName);
+  // 1. Exact normalized match
+  const exact = Object.keys(sheets).find(k => norm(k) === target);
+  if (exact) return exact;
+  // 2. Prefix match (handles API-truncated names)
+  const prefix = Object.keys(sheets).find(k => norm(k).startsWith(target) || target.startsWith(norm(k)));
+  if (prefix) return prefix;
+  // 3. Longest common prefix >= 10 chars
+  return Object.keys(sheets).find(k => {
+    const a = norm(k), b = target;
+    let i = 0;
+    while (i < a.length && i < b.length && a[i] === b[i]) i++;
+    return i >= 10;
+  }) || null;
+};
+
 export const getStoredProjectPlanSheets = async () => {
   const stored = await serverGet(PROJECT_PLAN_SHEETS_KEY);
   if (!stored) return {};
@@ -116,7 +136,9 @@ export const deleteProjectPlanSheet = async (projectName) => {
 
 export const getProjectPlanSheetUrl = async (projectName) => {
   const sheets = await getStoredProjectPlanSheets();
-  return sheets[sanitizeProjectName(projectName)]?.sheetUrl || null;
+  const key = fuzzyFindKey(sheets, projectName);
+  console.log('[getProjectPlanSheetUrl] projectName:', JSON.stringify(projectName), '| matched key:', key, '| available keys:', Object.keys(sheets));
+  return key ? sheets[key]?.sheetUrl || null : null;
 };
 
 export const getConsolidatedSheetUrl = async () => {
@@ -238,7 +260,7 @@ export const syncConsolidatedSheet = async (deletedProjects = []) => {
       continue;
     }
     try {
-      const values = await fetchSheetWithRetry(gapi, spreadsheetId, 'A2:X');
+      const values = await fetchSheetWithRetry(gapi, spreadsheetId, 'A2:Z');
       allRows.push(...values.filter(row => row.some(cell => cell?.toString().trim())));
     } catch (e) {
       console.warn(`[Sync] Failed to read ${projectName}:`, e?.result?.error?.message || e);
@@ -251,7 +273,7 @@ export const syncConsolidatedSheet = async (deletedProjects = []) => {
   // Always clear and rewrite so deleted projects are removed from the sheet
   await apiCallWithRetry(() => gapi.client.sheets.spreadsheets.values.clear({
     spreadsheetId: consolidatedSheetId,
-    range: 'A2:X'
+    range: 'A2:Z'
   }));
 
   if (allRows.length === 0) {
@@ -413,7 +435,7 @@ export const syncClientConsolidatedSheet = async (clientName, clientProjects) =>
     const spreadsheetId = sheetData?.spreadsheetId || sheetData?.sheetUrl?.split('/d/')[1]?.split('/')[0];
     if (!spreadsheetId || spreadsheetId === 'null') continue;
     try {
-      const values = await fetchSheetWithRetry(gapi, spreadsheetId, 'A2:X');
+      const values = await fetchSheetWithRetry(gapi, spreadsheetId, 'A2:Z');
       const rows = values.filter(row => row.some(cell => cell?.toString().trim()));
       allRows.push(...rows);
     } catch (e) {
@@ -435,7 +457,7 @@ export const syncClientConsolidatedSheet = async (clientName, clientProjects) =>
     return;
   }
 
-  await apiCallWithRetry(() => gapi.client.sheets.spreadsheets.values.clear({ spreadsheetId: consolidatedSheetId, range: 'A2:X' }));
+  await apiCallWithRetry(() => gapi.client.sheets.spreadsheets.values.clear({ spreadsheetId: consolidatedSheetId, range: 'A2:Z' }));
   await sleep(500);
   await apiCallWithRetry(() => gapi.client.sheets.spreadsheets.values.update({
     spreadsheetId: consolidatedSheetId,

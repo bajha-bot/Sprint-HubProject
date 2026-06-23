@@ -70,7 +70,7 @@ const RoleBasedLogin = () => {
   };
 
   return (
-    <div className="stats-card" style={{ maxWidth: '500px', margin: '100px auto', padding: '40px' }}>
+    <div className="stats-card" style={{ maxWidth: '500px', width: '90%', margin: '40px auto', padding: '24px' }}>
       <h2 className="stats-title" style={{ textAlign: 'center', marginBottom: '30px' }}>
         Role-Based Access Login
       </h2>

@@ -12,6 +12,7 @@ const RoleBasedClientBrowser = () => {
   const { user, allEmployees, loading } = useAuth();
   const [openedClients, setOpenedClients] = useState([]);
   const [openedProjects, setOpenedProjects] = useState([]);
+  const [showContent, setShowContent] = useState(false);
   const navigate = useNavigate();
   const [selectedDashboard, setSelectedDashboard] = useState(null);
 
@@ -46,6 +47,7 @@ const RoleBasedClientBrowser = () => {
 
   const handleProjectDashboard = (clientName, projectName) => {
     setSelectedDashboard({ clientName, projectName });
+    setShowContent(true);
   };
 
   if (loading) return <div className="stats-card">Loading...</div>;
@@ -79,104 +81,70 @@ const RoleBasedClientBrowser = () => {
   const clients = Array.from(clientsMap.values()).sort((a, b) => a.accountName.localeCompare(b.accountName));
 
   return (
-    <div style={{ display: 'flex', width: '100%', height: '100vh' }}>
-    <div className="stats-card" style={{ padding: '20px', minWidth: '300px', width: '300px', height: '100vh', overflowY: 'auto', boxSizing: 'border-box' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h2 className="stats-title">Teams Dashboard</h2>
-        <button
-          onClick={handleLogout}
-          style={{
-            padding: '8px 16px',
-            backgroundColor: '#dc3545',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer'
-          }}
-        >
-          Logout
-        </button>
-      </div>
-      {/* <div style={{ marginBottom: '20px', padding: '15px', backgroundColor: '#f5f5f5', borderRadius: '8px' }}>
-        <p><strong>Role:</strong> {user.role}</p>
-        <p><strong>Name:</strong> {user.name}</p>
-        <p><strong>Email:</strong> {user.email}</p>
-      </div> */}
-      
-      <h3 style={{ marginBottom: '15px' }}>Accessible Clients & Projects</h3>
-      
-      <div style={{ marginBottom: '1rem' }}>
-        {clients.length === 0 ? (
-          <div style={{ padding: '15px', color: '#666' }}>No accessible clients found</div>
-        ) : (
-          clients.map(client => {
-            const projects = Array.from(client.projects.values());
-            return (
-              <div key={client.accountName}>
-                <div 
-                  style={{ display: 'flex', cursor: 'pointer', marginBottom: '0.5rem', alignItems: 'center' }}
-                  onClick={() => handleClientToggle(client.accountName)}
-                >
-                  <img src={folderImg} height={20} alt="folder" />
-                  <h5 style={{ marginLeft: '10px', marginBottom: 0 }}>{client.accountName}</h5>
-                </div>
-                
-                {openedClients.includes(client.accountName) && (
-                  <div style={{ marginLeft: '1rem' }}>
-                    {projects.length > 0 ? (
-                      projects.map(project => (
-                        <div key={project.projectName}>
-                          <div 
-                            style={{ display: 'flex', cursor: 'pointer', marginBottom: '0.3rem', alignItems: 'center' }}
-                            onClick={() => handleProjectToggle(project.projectName)}
-                          >
-                            <img src={folderImg} height={20} alt="folder" />
-                            <h6 style={{ marginLeft: '10px', fontSize: '0.9rem', marginBottom: 0 }}>{project.projectName}</h6>
-                          </div>
-                          {openedProjects.includes(project.projectName) && (
-                            <div style={{ marginLeft: '1rem' }}>
-                              {[ 'Project Team Data'].map(fileName => (
-                                <div 
-                                  key={fileName}
-                                  style={{ 
-                                    display: 'flex', 
-                                    cursor: 'pointer', 
-                                    marginBottom: '0.2rem', 
-                                    alignItems: 'center',
-                                    padding: '4px 8px',
-                                    borderRadius: '4px',
-                                    border: '1px solid #e0e0e0'
-                                  }}
-                                  onClick={() => {
-                                    if (fileName === 'Project Team Data') {
-                                      handleProjectDashboard(client.accountName, project.projectName);
-                                    }
-                                  }}
-                                >
-                                  <img src={fileImg} height={16} alt="file" />
-                                  <span style={{ marginLeft: '8px', fontSize: '0.8rem' }}>{fileName}</span>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      ))
-                    ) : (
-                      <div style={{ marginLeft: '10px', color: '#666', fontSize: '0.8rem' }}>No projects available</div>
-                    )}
+    <div style={{ display: 'flex', width: '100%', height: '100vh', flexDirection: 'row', overflowX: 'hidden', boxSizing: 'border-box' }}>
+      <div className={`browser-tree-panel${showContent ? ' browser-tree-hidden' : ''}`} style={{ width: '300px', height: '100vh', overflowY: 'auto', boxSizing: 'border-box', padding: '20px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <h2 className="stats-title">Teams Dashboard</h2>
+          <button onClick={handleLogout}
+            style={{ padding: '8px 16px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+            Logout
+          </button>
+        </div>
+        <h3 style={{ marginBottom: '15px' }}>Accessible Clients & Projects</h3>
+        <div style={{ marginBottom: '1rem' }}>
+          {clients.length === 0 ? (
+            <div style={{ padding: '15px', color: '#666' }}>No accessible clients found</div>
+          ) : (
+            clients.map(client => {
+              const projects = Array.from(client.projects.values());
+              return (
+                <div key={client.accountName}>
+                  <div style={{ display: 'flex', cursor: 'pointer', marginBottom: '0.5rem', alignItems: 'center' }}
+                    onClick={() => handleClientToggle(client.accountName)}>
+                    <img src={folderImg} height={20} alt="folder" />
+                    <h5 style={{ marginLeft: '10px', marginBottom: 0 }}>{client.accountName}</h5>
                   </div>
-                )}
-              </div>
-            );
-          })
-        )}
+                  {openedClients.includes(client.accountName) && (
+                    <div style={{ marginLeft: '1rem' }}>
+                      {projects.length > 0 ? (
+                        projects.map(project => (
+                          <div key={project.projectName}>
+                            <div style={{ display: 'flex', cursor: 'pointer', marginBottom: '0.3rem', alignItems: 'center' }}
+                              onClick={() => handleProjectToggle(project.projectName)}>
+                              <img src={folderImg} height={20} alt="folder" />
+                              <h6 style={{ marginLeft: '10px', fontSize: '0.9rem', marginBottom: 0 }}>{project.projectName}</h6>
+                            </div>
+                            {openedProjects.includes(project.projectName) && (
+                              <div style={{ marginLeft: '1rem' }}>
+                                {['Project Team Data'].map(fileName => (
+                                  <div key={fileName}
+                                    style={{ display: 'flex', cursor: 'pointer', marginBottom: '0.2rem', alignItems: 'center', padding: '4px 8px', borderRadius: '4px', border: '1px solid #e0e0e0' }}
+                                    onClick={() => handleProjectDashboard(client.accountName, project.projectName)}>
+                                    <img src={fileImg} height={16} alt="file" />
+                                    <span style={{ marginLeft: '8px', fontSize: '0.8rem' }}>{fileName}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ))
+                      ) : (
+                        <div style={{ marginLeft: '10px', color: '#666', fontSize: '0.8rem' }}>No projects available</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
       </div>
-    </div>
-    {selectedDashboard && (
-      <div style={{ flex: 1, overflowY: 'auto' }}>
-        <ProjectStatsCard projectName={selectedDashboard.projectName} clientName={selectedDashboard.clientName} />
-      </div>
-    )}
+      {selectedDashboard && (
+        <div className={`browser-content-panel${showContent ? ' browser-content-visible' : ''}`} style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', boxSizing: 'border-box', maxWidth: '100%' }}>
+          <button className="browser-back-btn" onClick={() => setShowContent(false)}>← Back</button>
+          <ProjectStatsCard projectName={selectedDashboard.projectName} clientName={selectedDashboard.clientName} />
+        </div>
+      )}
     </div>
   );
 };

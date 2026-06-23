@@ -47,6 +47,16 @@ function CustomBarChart({ data }) {
   const barHeight = 25;
   const chartHeight = Math.max(data.length * barHeight + 40, 100);
 
+  const hasRed = data.some(d => d.blocked > 0);
+  const hasAmber = data.some(d => d.atRisk > 0);
+  const hasGreen = data.some(d => d.onTrack > 0);
+
+  const NullBar = (props) => {
+    const { x, y, width, height, value } = props;
+    if (!value || value === 0) return null;
+    return <rect x={x} y={y} width={width} height={height} fill={props.fill} />;
+  };
+
   const CustomYAxisTick = ({ x, y, payload }) => {
     const words = payload.value.split(' ');
     const lines = [];
@@ -88,9 +98,9 @@ function CustomBarChart({ data }) {
             );
           }}
         />
-        <Bar dataKey="blocked" stackId="a" fill="#ef4444" name="Red" />
-        <Bar dataKey="atRisk" stackId="a" fill="#f59e0b" name="Amber" />
-        <Bar dataKey="onTrack" stackId="a" fill="#22c55e" name="Green" />
+        {hasRed && <Bar dataKey="blocked" stackId="a" fill="#ef4444" name="Red" shape={<NullBar fill="#ef4444" />} />}
+        {hasAmber && <Bar dataKey="atRisk" stackId="a" fill="#f59e0b" name="Amber" shape={<NullBar fill="#f59e0b" />} />}
+        {hasGreen && <Bar dataKey="onTrack" stackId="a" fill="#22c55e" name="Green" shape={<NullBar fill="#22c55e" />} />}
       </BarChart>
     </ResponsiveContainer>
   );
@@ -105,32 +115,20 @@ const MonthlyHealthDashboard = ({ projectName, clientName, projectStats, clientP
   const [showPowerBi, setShowPowerBi] = useState(false);
   const [selectedProjects, setSelectedProjects] = useState(null);
   const [projectSearch, setProjectSearch] = useState('');
-  const [growthNote, setGrowthNote] = useState(() => {
-    const key = `sprintHub_growth_${clientName}_${projectName || 'client'}`;
-    return JSON.parse(localStorage.getItem(key) || 'null') || { tag: 'Hiring', text: '', updatedAt: '' };
-  });
-  const [editingGrowth, setEditingGrowth] = useState(false);
-  const focusKey = `sprintHub_focus_${clientName}_${projectName || 'client'}`;
-  const [focusItems, setFocusItems] = useState(() => JSON.parse(localStorage.getItem(`sprintHub_focus_${clientName}_${projectName || 'client'}`) || '[]'));
-  const [focusFilter, setFocusFilter] = useState('All');
-  const [showAddFocus, setShowAddFocus] = useState(false);
-  const [newFocus, setNewFocus] = useState({ title: '', desc: '', status: 'In Progress', link: '' });
 
-  // Reset state when client changes
+  // Reset state when client/project changes
   useEffect(() => {
     setClientBarData([]);
     setSelectedProjects(new Set());
     setSheetData([]);
     setHeaders([]);
-    const gKey = `sprintHub_growth_${clientName}_${projectName || 'client'}`;
-    setGrowthNote(JSON.parse(localStorage.getItem(gKey) || 'null') || { tag: 'Hiring', text: '', updatedAt: '' });
-    const fKey = `sprintHub_focus_${clientName}_${projectName || 'client'}`;
-    setFocusItems(JSON.parse(localStorage.getItem(fKey) || '[]'));
   }, [clientName, projectName]);
 
   useEffect(() => {
     const fetchSheet = async () => {
       setLoading(true);
+      setSheetData([]);
+      setHeaders([]);
       try {
         // Client-level: fetch latest row from each project sheet
         if (!projectName && clientProjects?.length > 0) {
@@ -138,12 +136,31 @@ const MonthlyHealthDashboard = ({ projectName, clientName, projectStats, clientP
           const allSheets = await getStoredProjectPlanSheets();
           await ensureGapi();
 
+          const normalize = s => s?.replace(/[\r\n\t]+/g, ' ').trim().toLowerCase() ?? '';
+          const fuzzyMatch = (keys, proj) => {
+            const normProj = normalize(proj);
+            // 1. Exact normalized match
+            let match = keys.find(k => normalize(k) === normProj);
+            if (match) return match;
+            // 2. One starts with the other (handles API truncation)
+            match = keys.find(k => normalize(k).startsWith(normProj) || normProj.startsWith(normalize(k)));
+            if (match) return match;
+            // 3. Longest common prefix >= 10 chars
+            match = keys.find(k => {
+              const a = normalize(k), b = normProj;
+              let i = 0;
+              while (i < a.length && i < b.length && a[i] === b[i]) i++;
+              return i >= 10;
+            });
+            return match || null;
+          };
           const fetchProject = async (proj) => {
-            const sheetUrl = allSheets[proj]?.sheetUrl;
+            const matchedKey = fuzzyMatch(Object.keys(allSheets), proj);
+            const sheetUrl = allSheets[matchedKey]?.sheetUrl;
             if (!sheetUrl) return { bar: { name: proj, onTrack: 0, atRisk: 0, blocked: 0 }, row: null, hdrs: null };
             const spreadsheetId = sheetUrl.split('/d/')[1]?.split('/')[0];
             try {
-              const gapiRes = await window.gapi.client.sheets.spreadsheets.values.get({ spreadsheetId, range: 'A1:X' });
+              const gapiRes = await window.gapi.client.sheets.spreadsheets.values.get({ spreadsheetId, range: 'A1:Z' });
               const values = gapiRes.result.values;
               if (!values || values.length < 2) return { bar: { name: proj, onTrack: 0, atRisk: 0, blocked: 0 }, row: null, hdrs: null };
               const hdrs = values[0];
@@ -186,7 +203,7 @@ const MonthlyHealthDashboard = ({ projectName, clientName, projectStats, clientP
         const spreadsheetId = sheetUrl.split('/d/')[1]?.split('/')[0];
 
         await ensureGapi();
-        const gapiRes = await window.gapi.client.sheets.spreadsheets.values.get({ spreadsheetId, range: 'A1:X' });
+        const gapiRes = await window.gapi.client.sheets.spreadsheets.values.get({ spreadsheetId, range: 'A1:Z' });
         let values = gapiRes.result.values;
 
         if (values && values.length > 0) {
@@ -243,6 +260,24 @@ const MonthlyHealthDashboard = ({ projectName, clientName, projectStats, clientP
   });
   const barData = Object.values(sprintMap).filter(d => d.onTrack + d.atRisk + d.blocked > 0);
 
+  const sortOrder = (d) => {
+    const r = d.blocked > 0, a = d.atRisk > 0, g = d.onTrack > 0;
+    if (r && !a && !g) return 1;       // Only Red
+    if (r && a && g)  return 2;        // Red + Amber + Green
+    if (r && a && !g) return 3;        // Red + Amber
+    if (r && !a && g) return 4;        // Red + Green
+    if (!r && a && !g) return 5;       // Only Amber
+    if (!r && a && g)  return 6;       // Amber + Green
+    if (!r && !a && g) return 7;       // Only Green
+    return 8;
+  };
+  const sortedBarData = [...barData].sort((a, b) => sortOrder(a) - sortOrder(b));
+
+  const growthIdx = headers.findIndex(h => h?.toLowerCase().includes('growth'));
+  const focusSheetIdx = headers.findIndex(h => h?.toLowerCase().includes('current focus'));
+  const updatedIdx = headers.findIndex(h => h?.toLowerCase().includes('end date') || h?.toLowerCase().includes('updated') || h?.toLowerCase().includes('date'));
+  const projectNameColIdx = headers.findIndex(h => h?.toLowerCase().trim() === 'project name');
+
   const latestRow = sheetData[sheetData.length - 1] || [];
   const currentTasks = latestRow[tasksIdx] || '';
   const currentRisks = latestRow[risksIdx] || '';
@@ -287,9 +322,36 @@ const MonthlyHealthDashboard = ({ projectName, clientName, projectStats, clientP
 
   const isClientView = !projectName;
   const activeSelected = selectedProjects ?? new Set();
+
+  const scanRows = (idx) => {
+    if (idx < 0) return { text: '', dateVal: null };
+    let rows = sheetData;
+    if (!projectName && projectNameColIdx >= 0) {
+      const singleSelected = activeSelected.size === 1 ? [...activeSelected][0] : null;
+      if (singleSelected) {
+        const normalize = s => s?.toLowerCase().replace(/[\s\-_]+/g, '');
+        rows = sheetData.filter(r => normalize(r[projectNameColIdx]?.toString()) === normalize(singleSelected));
+        // console.log('[scanRows]', { singleSelected, projectNameColIdx, sheetNames: sheetData.map(r => r[projectNameColIdx]), matched: rows.length });
+      } else {
+        return { text: '', dateVal: null };
+      }
+    }
+    for (let i = rows.length - 1; i >= 0; i--) {
+      const val = rows[i][idx]?.toString().trim();
+      if (val) {
+        const dateVal = updatedIdx >= 0 ? rows[i][updatedIdx]?.toString().trim() || null : null;
+        return { text: val, dateVal };
+      }
+    }
+    return { text: '', dateVal: null };
+  };
+
+  const { text: growthText, dateVal: growthLastUpdated } = scanRows(growthIdx);
+  const { text: focusSheetText, dateVal: focusSheetLastUpdated } = scanRows(focusSheetIdx);
+
   const chartData = isClientView
-    ? clientBarData.filter(d => activeSelected.has(d.name))
-    : barData;
+    ? [...clientBarData.filter(d => activeSelected.has(d.name))].sort((a, b) => sortOrder(a) - sortOrder(b))
+    : sortedBarData;
 
   // Derive health totals from chartData (story points) so they always match the bar chart
   const healthGreen = chartData.reduce((s, d) => s + d.onTrack, 0);
@@ -353,6 +415,19 @@ const MonthlyHealthDashboard = ({ projectName, clientName, projectStats, clientP
 
   return (
     <div style={{ backgroundColor: '#f0f4f8', minHeight: '100%', padding: '16px', fontFamily: 'Segoe UI, sans-serif', boxSizing: 'border-box' }}>
+      <style>{`
+        .dashboard-grid {
+          display: grid;
+          grid-template-columns: minmax(160px, 200px) 1fr minmax(180px, 220px);
+          gap: 14px;
+          min-width: 0;
+        }
+        @media (max-width: 768px) {
+          .dashboard-grid {
+            grid-template-columns: 1fr;
+          }
+        }
+      `}</style>
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
         <div>
@@ -371,7 +446,7 @@ const MonthlyHealthDashboard = ({ projectName, clientName, projectStats, clientP
         </div> */}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(160px, 200px) 1fr minmax(180px, 220px)', gap: '14px', minWidth: 0 }}>
+      <div className="dashboard-grid">
         {/* LEFT PANEL */}
         <div>
           <div style={panelStyle}>
@@ -460,11 +535,13 @@ const MonthlyHealthDashboard = ({ projectName, clientName, projectStats, clientP
             <div style={{ fontSize: '12px', fontWeight: '700', color: '#1e3a5f', marginBottom: '10px' }}>{isClientView ? '📊 Portfolio Projects — Latest Sprint Story Points' : '📊 Portfolio Project — Sprint Story Points'}</div>
             <CustomBarChart data={chartData} />
             <div style={{ display: 'flex', gap: '12px', marginTop: '8px', justifyContent: 'center' }}>
-              {[['#ef4444', 'Red'], ['#f59e0b', 'Amber'], ['#22c55e', 'Green']].map(([c, l]) => (
-                <div key={l} style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', color: '#6b7280' }}>
-                  <div style={{ width: '8px', height: '8px', borderRadius: '2px', backgroundColor: c }} />{l}
-                </div>
-              ))}
+              {[['#ef4444', 'Red', 'blocked'], ['#f59e0b', 'Amber', 'atRisk'], ['#22c55e', 'Green', 'onTrack']]
+                .filter(([, , key]) => chartData.some(d => d[key] > 0))
+                .map(([c, l]) => (
+                  <div key={l} style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', color: '#6b7280' }}>
+                    <div style={{ width: '8px', height: '8px', borderRadius: '2px', backgroundColor: c }} />{l}
+                  </div>
+                ))}
             </div>
           </div>
 
@@ -517,151 +594,44 @@ const MonthlyHealthDashboard = ({ projectName, clientName, projectStats, clientP
             <GaugeChart value={healthScore} color={gaugeColor} label="Health Score" />
             <div style={{ marginTop: '6px', padding: '4px 10px', backgroundColor: gaugeColor + '20', borderRadius: '12px', display: 'inline-block' }}>
               <span style={{ fontSize: '11px', fontWeight: '700', color: gaugeColor }}>
-                {healthScore >= 70 ? 'On Track)' : healthScore >= 40 ? 'At Risk' : 'Critical'}
+                {healthScore >= 70 ? 'On Track' : healthScore >= 40 ? 'At Risk' : 'Critical'}
               </span>
             </div>
           </div>
 
           <div style={panelStyle}>
-            {/* Header */}
-            <div style={{ marginBottom: '8px' }}>
-              <div style={{ fontSize: '12px', fontWeight: '700', color: '#1e3a5f', marginBottom: '6px' }}>📌 Current Focus Areas</div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <select
-                  value={focusFilter}
-                  onChange={e => setFocusFilter(e.target.value)}
-                  style={{ fontSize: '10px', border: '1px solid #d1d5db', borderRadius: '6px', padding: '2px 6px', color: '#374151', outline: 'none', flex: 1 }}
-                >
-                  {['All', 'In Progress', 'On Track', 'Blocked'].map(f => <option key={f}>{f}</option>)}
-                </select>
-                <button
-                  onClick={() => setShowAddFocus(s => !s)}
-                  style={{ fontSize: '10px', backgroundColor: '#1e3a5f', color: '#fff', border: 'none', borderRadius: '6px', padding: '3px 8px', cursor: 'pointer', whiteSpace: 'nowrap' }}
-                >+ Add</button>
-              </div>
+            <div style={{ fontSize: '12px', fontWeight: '700', color: '#1e3a5f', marginBottom: '10px' }}>📌 Current Focus Areas</div>
+            <div style={{ fontSize: '12px', color: '#374151', minHeight: '60px', maxHeight: '180px', overflowY: 'auto' }}>
+              {focusSheetText ? (
+                <p style={{ margin: 0, lineHeight: '1.7', whiteSpace: 'pre-wrap' }}>{focusSheetText}</p>
+              ) : (
+                <p style={{ margin: 0, color: '#9ca3af', fontStyle: 'italic' }}>{projectName ? 'No focus areas data available for the last sprint.' : 'Select a project to view focus areas.'}</p>
+              )}
             </div>
-
-            {/* Add Form */}
-            {showAddFocus && (
-              <div style={{ backgroundColor: '#f8fafc', borderRadius: '8px', padding: '10px', marginBottom: '10px', border: '1px solid #e5e7eb' }}>
-                <input placeholder="Title" value={newFocus.title} onChange={e => setNewFocus(n => ({ ...n, title: e.target.value }))}
-                  style={{ width: '100%', fontSize: '11px', border: '1px solid #d1d5db', borderRadius: '5px', padding: '5px 8px', marginBottom: '6px', boxSizing: 'border-box', outline: 'none' }} />
-                <input placeholder="Short description" value={newFocus.desc} onChange={e => setNewFocus(n => ({ ...n, desc: e.target.value }))}
-                  style={{ width: '100%', fontSize: '11px', border: '1px solid #d1d5db', borderRadius: '5px', padding: '5px 8px', marginBottom: '6px', boxSizing: 'border-box', outline: 'none' }} />
-                <input placeholder="Link URL (optional)" value={newFocus.link} onChange={e => setNewFocus(n => ({ ...n, link: e.target.value }))}
-                  style={{ width: '100%', fontSize: '11px', border: '1px solid #d1d5db', borderRadius: '5px', padding: '5px 8px', marginBottom: '6px', boxSizing: 'border-box', outline: 'none' }} />
-                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                  <select value={newFocus.status} onChange={e => setNewFocus(n => ({ ...n, status: e.target.value }))}
-                    style={{ fontSize: '11px', border: '1px solid #d1d5db', borderRadius: '5px', padding: '4px 6px', flex: 1, outline: 'none' }}>
-                    {['In Progress', 'On Track', 'Blocked'].map(s => <option key={s}>{s}</option>)}
-                  </select>
-                  <button
-                    onClick={() => {
-                      if (!newFocus.title.trim()) return;
-                      const updated = [...focusItems, { ...newFocus, id: Date.now() }];
-                      setFocusItems(updated);
-                      localStorage.setItem(focusKey, JSON.stringify(updated));
-                      setNewFocus({ title: '', desc: '', status: 'In Progress', link: '' });
-                      setShowAddFocus(false);
-                    }}
-                    style={{ fontSize: '11px', backgroundColor: '#22c55e', color: '#fff', border: 'none', borderRadius: '5px', padding: '4px 12px', cursor: 'pointer' }}
-                  >Save</button>
-                </div>
+            {focusSheetText && (
+              <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #f0f0f0', fontSize: '10px', color: '#9ca3af', textAlign: 'center' }}>
+                🕒 Last updated: {focusSheetLastUpdated ? new Date(focusSheetLastUpdated).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
               </div>
             )}
-
-            {/* Items */}
-            <div style={{ maxHeight: '280px', overflowY: 'auto' }}>
-              {(focusFilter === 'All' ? focusItems : focusItems.filter(f => f.status === focusFilter)).length === 0 && (
-                <div style={{ fontSize: '11px', color: '#9ca3af', textAlign: 'center', padding: '16px 0' }}>No focus areas. Click + Add to create one.</div>
-              )}
-              {(focusFilter === 'All' ? focusItems : focusItems.filter(f => f.status === focusFilter)).map(item => {
-                const statusColors = { 'In Progress': ['#f59e0b', '#fffbeb'], 'On Track': ['#3b82f6', '#eff6ff'], 'Blocked': ['#ef4444', '#fef2f2'] };
-                const [sc, bg] = statusColors[item.status] || ['#6b7280', '#f9fafb'];
-                return (
-                  <div key={item.id} style={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '10px 12px', marginBottom: '8px', borderLeft: `3px solid ${sc}` }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
-                      <div style={{ fontSize: '12px', fontWeight: '700', color: '#1e3a5f', flex: 1, paddingRight: '6px' }}>{item.title}</div>
-                      <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
-                        <span style={{ fontSize: '9px', backgroundColor: bg, color: sc, padding: '2px 7px', borderRadius: '10px', fontWeight: '600', border: `1px solid ${sc}30` }}>{item.status}</span>
-                        <button onClick={() => { const updated = focusItems.filter(f => f.id !== item.id); setFocusItems(updated); localStorage.setItem(focusKey, JSON.stringify(updated)); }}
-                          style={{ fontSize: '9px', background: 'none', border: 'none', cursor: 'pointer', color: '#d1d5db', padding: '0 2px' }}>×</button>
-                      </div>
-                    </div>
-                    {item.desc && <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '6px', lineHeight: '1.5' }}>{item.desc}</div>}
-                    {item.link && (
-                      <a href={item.link} target="_blank" rel="noopener noreferrer"
-                        style={{ fontSize: '10px', color: '#2a89ac', fontWeight: '600', textDecoration: 'none' }}>👉 View Details</a>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
           </div>
 
           <div style={panelStyle}>
-            {/* Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-              <div style={{ fontSize: '12px', fontWeight: '700', color: '#1e3a5f' }}>📈 Growth</div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                {editingGrowth ? (
-                  <select
-                    value={growthNote.tag}
-                    onChange={e => setGrowthNote(g => ({ ...g, tag: e.target.value }))}
-                    style={{ fontSize: '10px', border: '1px solid #d1d5db', borderRadius: '10px', padding: '2px 6px', color: '#374151' }}
-                  >
-                    {['Hiring', 'On Track', 'At Risk', 'Blocked', 'Update'].map(t => <option key={t}>{t}</option>)}
-                  </select>
-                ) : (
-                  <span style={{ fontSize: '10px', backgroundColor: '#dcfce7', color: '#16a34a', padding: '2px 8px', borderRadius: '10px', fontWeight: '600' }}>{growthNote.tag}</span>
-                )}
-                <button
-                  onClick={() => {
-                    if (editingGrowth) {
-                      const updated = { ...growthNote, updatedAt: new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) };
-                      const key = `sprintHub_growth_${clientName}_${projectName || 'client'}`;
-                      localStorage.setItem(key, JSON.stringify(updated));
-                      setGrowthNote(updated);
-                    }
-                    setEditingGrowth(e => !e);
-                  }}
-                  style={{ fontSize: '10px', background: 'none', border: '1px solid #d1d5db', borderRadius: '6px', padding: '2px 8px', cursor: 'pointer', color: '#6b7280' }}
-                >{editingGrowth ? 'Save' : '✏️ Edit'}</button>
-              </div>
-            </div>
-            {/* Content */}
+            <div style={{ fontSize: '12px', fontWeight: '700', color: '#1e3a5f', marginBottom: '10px' }}>📈 Growth</div>
             <div style={{ fontSize: '12px', color: '#374151', minHeight: '80px', maxHeight: '180px', overflowY: 'auto' }}>
-              {editingGrowth ? (
-                <textarea
-                  value={growthNote.text}
-                  onChange={e => setGrowthNote(g => ({ ...g, text: e.target.value }))}
-                  placeholder="Enter update… e.g.&#10;Gap is hiring for a Java Engineer in India.&#10;• 2 candidates shortlisted&#10;• 1 interview completed"
-                  style={{ width: '100%', minHeight: '120px', fontSize: '12px', border: '1px solid #d1d5db', borderRadius: '6px', padding: '8px', boxSizing: 'border-box', resize: 'vertical', outline: 'none', fontFamily: 'inherit', lineHeight: '1.6' }}
-                />
-              ) : growthNote.text ? (
-                <p style={{ margin: 0, lineHeight: '1.7', whiteSpace: 'pre-wrap' }}>{growthNote.text}</p>
+              {growthText ? (
+                <p style={{ margin: 0, lineHeight: '1.7', whiteSpace: 'pre-wrap' }}>{growthText}</p>
               ) : (
-                <p style={{ margin: 0, color: '#9ca3af', fontStyle: 'italic' }}>No growth update yet. Click ✏️ Edit to add one.</p>
+                <p style={{ margin: 0, color: '#9ca3af', fontStyle: 'italic' }}>{projectName ? 'No growth data available for the last sprint.' : 'Select a project to view growth.'}</p>
               )}
             </div>
-            {/* Footer */}
-            {growthNote.updatedAt && (
-              <div style={{ marginTop: '10px', paddingTop: '8px', borderTop: '1px solid #f3f4f6', fontSize: '10px', color: '#9ca3af' }}>
-                Last updated: {growthNote.updatedAt}
+            {growthText && (
+              <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #f0f0f0', fontSize: '10px', color: '#9ca3af', textAlign: 'center' }}>
+                🕒 Last updated: {growthLastUpdated ? new Date(growthLastUpdated).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
               </div>
             )}
           </div>
 
-          {/* {headers.length > 0 && (
-            <div style={panelStyle}>
-              <div style={{ fontSize: '11px', fontWeight: '700', color: '#2a89ac', marginBottom: '6px' }}>📋 Sheet Fields</div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                {headers.map((h, i) => (
-                  <span key={i} style={{ fontSize: '9px', backgroundColor: '#e0f2fe', color: '#0369a1', padding: '2px 6px', borderRadius: '10px' }}>{h}</span>
-                ))}
-              </div>
-            </div>
-          )} */}
+          {/* Sheet Fields debug panel removed */}
         </div>
       </div>
     </div>

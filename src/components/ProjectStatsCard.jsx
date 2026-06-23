@@ -230,65 +230,41 @@ const ProjectStatsCard = ({ projectName, clientName }) => {
 
   return (
     <div className="stats-card">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+      <div className="stats-card-header">
         <div>
-          <h2 className="stats-title">Project Dashboard: {projectName}</h2>
+          <h2 className="stats-title" style={{ marginBottom: '4px' }}>Project Dashboard: {projectName}</h2>
           <h3 className="client-name">Client: {clientName}</h3>
         </div>
-        <div>
+        <div className="stats-card-actions">
           {user && user.role === ROLES.EMPLOYEE && (
             <>
-              <button 
-                onClick={handleGoogleSheetsExport}
-                style={{ marginRight: '10px', padding: '8px 16px', backgroundColor: '#0F9D58', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-              >
+              <button onClick={handleGoogleSheetsExport}
+                style={{ padding: '8px 16px', backgroundColor: '#0F9D58', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
                 📋 Export My Project Sheet
               </button>
             </>
           )}
-          
           {user && user.role === ROLES.CCL && (
             <>
-              {/* <button 
-                onClick={handleClientSheetOpen}
-                style={{ marginRight: '10px', padding: '8px 16px', backgroundColor: '#0F9D58', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-              >
-                📋 Open Client Sheet
-              </button> */}
-              <button 
-                onClick={handleClientProjectsGoogleSheetsExport}
-                style={{ marginRight: '10px', padding: '8px 16px', backgroundColor: '#34A853', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-              >
+              <button onClick={handleClientProjectsGoogleSheetsExport}
+                style={{ padding: '8px 16px', backgroundColor: '#34A853', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
                 📊 Client Projects to Sheets
               </button>
             </>
           )}
-          
           {user && (user.role === ROLES.CDH || user.role === ROLES.ADMIN) && (
             <>
-              {/* <button 
-                onClick={handleClientSheetOpen}
-                style={{ marginRight: '10px', padding: '8px 16px', backgroundColor: '#0F9D58', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-              >
-                📋 Open Client Sheet
-              </button> */}
-              <button 
-                onClick={handleGoogleSheetsExport}
-                style={{ marginRight: '10px', padding: '8px 16px', backgroundColor: '#0F9D58', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-              >
+              <button onClick={handleGoogleSheetsExport}
+                style={{ padding: '8px 16px', backgroundColor: '#0F9D58', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
                 📋 Export Project Sheet
               </button>
-              <button 
-                onClick={handleAllEmployeesStaticSheetExport}
-                style={{ marginRight: '10px', padding: '8px 16px', backgroundColor: '#1a73e8', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-              >
-                🔗 All Employees to Static Sheet
+              <button onClick={handleAllEmployeesStaticSheetExport}
+                style={{ padding: '8px 16px', backgroundColor: '#1a73e8', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+                🔗 All Employees Sheet
               </button>
-              <button 
-                onClick={handleClientProjectsGoogleSheetsExport}
-                style={{ marginRight: '10px', padding: '8px 16px', backgroundColor: '#34A853', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-              >
-                📊 Client Projects to Sheets
+              <button onClick={handleClientProjectsGoogleSheetsExport}
+                style={{ padding: '8px 16px', backgroundColor: '#34A853', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+                📊 Client Projects
               </button>
             </>
           )}

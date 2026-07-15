@@ -404,10 +404,14 @@ export default function ProjectShowDashboard({ projectName, clientName, projectS
         if (!sheetUrl) return;
         const spreadsheetId = sheetUrl.split('/d/')[1]?.split('/')[0];
         let values = null;
-        if (window.gapi?.client?.sheets && window.gapi.client.getToken()) {
+        try {
+          const { initializeGoogleAPI, initializeGIS, authenticate } = await import('../utils/googleSheetsService');
+          if (!window.gapi?.client?.sheets) await Promise.all([initializeGoogleAPI(), initializeGIS()]);
+          if (!window.gapi.client.getToken()) await authenticate();
           const res = await window.gapi.client.sheets.spreadsheets.values.get({ spreadsheetId, range: 'A1:Z' });
           values = res.result.values;
-        } else {
+        } catch (gapiErr) {
+          console.warn('gapi failed, trying API key fallback:', gapiErr);
           const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/A1:Z?key=AIzaSyAXU_abdTN3N-6Nv78KbQjht0QKl1xd9Eo`);
           const result = await res.json();
           values = result.values;

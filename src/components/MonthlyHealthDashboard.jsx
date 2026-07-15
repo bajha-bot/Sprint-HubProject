@@ -329,9 +329,15 @@ const MonthlyHealthDashboard = ({ projectName, clientName, projectStats, clientP
     if (!projectName && projectNameColIdx >= 0) {
       const singleSelected = activeSelected.size === 1 ? [...activeSelected][0] : null;
       if (singleSelected) {
-        const normalize = s => s?.toLowerCase().replace(/[\s\-_]+/g, '');
-        rows = sheetData.filter(r => normalize(r[projectNameColIdx]?.toString()) === normalize(singleSelected));
-        // console.log('[scanRows]', { singleSelected, projectNameColIdx, sheetNames: sheetData.map(r => r[projectNameColIdx]), matched: rows.length });
+        const normalize = s => s?.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const normalizedSelected = normalize(singleSelected);
+        rows = sheetData.filter(r => normalize(r[projectNameColIdx]?.toString()) === normalizedSelected);
+        if (rows.length === 0) {
+          rows = sheetData.filter(r => {
+            const n = normalize(r[projectNameColIdx]?.toString());
+            return n.includes(normalizedSelected) || normalizedSelected.includes(n);
+          });
+        }
       } else {
         return { text: '', dateVal: null };
       }
@@ -431,7 +437,7 @@ const MonthlyHealthDashboard = ({ projectName, clientName, projectStats, clientP
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
         <div>
-          <h4 style={{ margin: 0, color: '#1e3a5f', textAlign: 'center', fontWeight: '700' }}>{isClientView ? '📊 Account Dashboard' : '📅 Sprint Health Dashboard'}</h4>
+          <h4 style={{ margin: 0, color: '#1e3a5f', textAlign: 'center', fontWeight: '700' }}>{isClientView ? '📊 Account Dashboard' : '📅 Account Summery Dashboard'}</h4>
           <div style={{ fontSize: '12px', color: '#6b7280' }}>{clientName}{projectName ? ` › ${projectName}` : ''}</div>
         </div>
         {/* <div style={{ display: 'flex', gap: '8px' }}>

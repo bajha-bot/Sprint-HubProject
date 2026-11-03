@@ -22,6 +22,7 @@ function App() {
 
   useEffect(() => {
     initializeToken();
+    console.log('test')
     const syncTree = () =>
       import('./features/clientProjectTreeSlice').then(({ loadCustomTreeFromServer }) =>
         loadCustomTreeFromServer().then(data => {
